@@ -1,0 +1,23 @@
+[general]
+download_images = false
+log_level = "INFO"
+raw_data_path = "data/raw"
+processed_data_path = "data/processed"
+
+[sources.inaturalist]
+enabled = true
+base_url = "https://api.inaturalist.org/v1"
+taxon_id = 47126        # Plantae
+term_id = 9             # хвороба рослини
+per_page = 200          # максимум дозволений API
+max_pages = 10
+rate_limit_seconds = 1.0
+
+[sources.kaggle]
+enabled = false
+dataset = "plantvillage/plantvillage-dataset"
+
+[load]
+format = "sqlite"
+target_path = "data/processed/observations.db"
+table_name = "observations"
