@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_pipeline(config_path: str = "config.toml") -> None:
+
     config: AppConfig = load_config(config_path)
     setup_logging(config["general"]["log_level"])
 
@@ -41,7 +42,7 @@ def run_pipeline(config_path: str = "config.toml") -> None:
     logger.info("[ EXTRACT ] Starting data extraction")
     raw_file = run_extract(config_path)
     if raw_file is None:
-        logger.error("Extract failed — no data source enabled")
+        logger.error("Extract failed — no data source enabled or no observations found")
         sys.exit(1)
     logger.info(f"[ EXTRACT ] Complete — raw data saved to {raw_file}")
 

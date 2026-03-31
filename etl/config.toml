@@ -6,6 +6,7 @@ processed_data_path = "data/processed"
 
 [sources.inaturalist]
 enabled = true
+refetch = false
 base_url = "https://api.inaturalist.org/v1"
 taxon_id = 47126        # Plantae
 term_id = 9             # хвороба рослини

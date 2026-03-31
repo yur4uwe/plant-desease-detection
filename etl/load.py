@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from config.types import AppConfig
+from etl.config.helpers import ETL_ROOT
+from etl.config.types import AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,9 @@ def load_observations(conn: sqlite3.Connection, df: pd.DataFrame) -> int:
         df["observation_date"]
         .astype(str)
         .where(df["observation_date"].notna(), other=None)
+    )
+    df["extracted_at"] = (
+        df["extracted_at"].astype(str).where(df["extracted_at"].notna(), other=None)
     )
     df["is_diseased"] = df["is_diseased"].map(lambda x: int(x) if pd.notna(x) else None)
 
@@ -127,10 +131,10 @@ def verify_load(conn: sqlite3.Connection, expected: int) -> None:
 
 
 def run_load(df: pd.DataFrame, config: AppConfig) -> None:
-    db_path = config["load"]["target_path"]
+    db_path = ETL_ROOT / config["load"]["target_path"]
     logger.info(f"Loading {len(df)} observations into {db_path}")
 
-    conn = get_connection(db_path)
+    conn = get_connection(db_path.as_posix())
     try:
         init_db(conn)
         inserted = load_observations(conn, df)

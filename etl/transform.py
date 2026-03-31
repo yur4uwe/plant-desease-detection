@@ -3,8 +3,10 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
 from pandera import DataFrameSchema, Column, Check
+
+from etl.sources.interface import RawObservation
 
 logger = logging.getLogger(__name__)
 
@@ -12,28 +14,28 @@ logger = logging.getLogger(__name__)
 
 observation_schema = DataFrameSchema(
     {
-        "source": Column(str, Check.isin(["inaturalist", "kaggle"])),
-        "external_id": Column(str, Check.str_length(min_value=1)),
+        "source": Column(str, Check.isin(["inaturalist", "kaggle"])),  # pyright: ignore[reportUnknownMemberType]
+        "external_id": Column(str, Check.str_length(min_value=1)),  # pyright: ignore[reportUnknownMemberType]
         "image_url": Column(str, nullable=True),
         "label": Column(str, nullable=True),
-        "is_diseased": Column(bool, nullable=True),
-        "latitude": Column(float, nullable=True, checks=Check.in_range(-90, 90)),
-        "longitude": Column(float, nullable=True, checks=Check.in_range(-180, 180)),
-        "observation_date": Column(pa.DateTime, nullable=True),
-        "extracted_at": Column(str, Check.str_length(min_value=1)),
+        "is_diseased": Column(pd.BooleanDtype(), nullable=True),
+        "latitude": Column(float, nullable=True, checks=Check.in_range(-90, 90)),  # pyright: ignore[reportUnknownMemberType]
+        "longitude": Column(float, nullable=True, checks=Check.in_range(-180, 180)),  # pyright: ignore[reportUnknownMemberType]
+        "observation_date": Column(pa.DateTime, nullable=True),  # pyright: ignore[reportUnknownMemberType]
+        "extracted_at": Column(pa.DateTime, nullable=False),  # pyright: ignore[reportUnknownMemberType]
     }
 )
 
 # ─── Завантаження сирих даних ─────────────────────────────────────
 
 
-def load_raw(raw_file: Path) -> pd.DataFrame:
-    records: list[dict[str, object]] = []
-    with open(raw_file, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                records.append(json.loads(line))
+def load_raw(cache_files: list[Path]) -> pd.DataFrame:
+    records: list[RawObservation] = []
+    for cache_file in cache_files:
+        with open(cache_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            records.extend([RawObservation.from_dict(obs) for obs in data])
+    logger.info(f"Loaded {len(records)} raw records from {len(cache_files)} files")
     return pd.DataFrame(records)
 
 
@@ -92,9 +94,9 @@ def drop_invalid_coordinates(df: pd.DataFrame) -> pd.DataFrame:
 # ─── Оркестрація ──────────────────────────────────────────────────
 
 
-def run_transform(raw_file: Path) -> pd.DataFrame:
-    logger.info(f"Loading raw data from {raw_file}")
-    df = load_raw(raw_file)
+def run_transform(raw_files: list[Path]) -> pd.DataFrame:
+    logger.info(f"Loading raw data from {raw_files}")
+    df = load_raw(raw_files)
     logger.info(f"Loaded {len(df)} raw observations")
 
     df = normalize_columns(df)
