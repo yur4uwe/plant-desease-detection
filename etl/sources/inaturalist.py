@@ -4,6 +4,7 @@ import logging
 from typing import Any, cast, final, override, TypedDict
 import requests
 from _collections_abc import Iterator
+from etl.config.types import iNaturalistSourceConfig
 from sources.interface import SourceInterface, RawObservation
 from datetime import datetime
 
@@ -61,8 +62,8 @@ class iNaturalistResponse(TypedDict):
 
 @final
 class iNaturalistSource(SourceInterface):
-    def __init__(self, config: dict[str, Any]) -> None:  # pyright: ignore[reportExplicitAny]
-        self.config = self.parse_conf(config)
+    def __init__(self, config: iNaturalistSourceConfig) -> None:
+        self.config = self.parse_conf(cast(dict[str, Any], cast(object, config)))  # pyright: ignore[reportExplicitAny]
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "PlantDiseaseETL/1.0"})
 
