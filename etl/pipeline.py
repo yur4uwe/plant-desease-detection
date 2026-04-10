@@ -7,7 +7,7 @@ from etl.extract import load_config, run_extract
 from etl.transform import run_transform
 from etl.load import run_load
 
-# ─── Логування ───────────────────────────────────────────────────
+# ─── Logging ───────────────────────────────────────────────────
 
 
 def setup_logging(log_level: str) -> None:
@@ -26,13 +26,13 @@ def setup_logging(log_level: str) -> None:
 
 logger = logging.getLogger(__name__)
 
-# ─── Оркестрація ─────────────────────────────────────────────────
+# ─── Orchestration ───────────────────────────────────────────────
 
 
-def run_pipeline(config_path: str = "config.toml") -> None:
+def run_pipeline(config_path: str = "etl/config.toml") -> None:
 
     config: AppConfig = load_config(config_path)
-    setup_logging(config["general"]["log_level"])
+    setup_logging(config.general.log_level)
 
     logger.info("=" * 50)
     logger.info("Starting ETL pipeline")
@@ -40,15 +40,15 @@ def run_pipeline(config_path: str = "config.toml") -> None:
 
     # Extract
     logger.info("[ EXTRACT ] Starting data extraction")
-    raw_file = run_extract(config_path)
-    if raw_file is None:
+    observations = run_extract(config)
+    if not observations:
         logger.error("Extract failed — no data source enabled or no observations found")
         sys.exit(1)
-    logger.info(f"[ EXTRACT ] Complete — raw data saved to {raw_file}")
+    logger.info(f"[ EXTRACT ] Complete — fetched {len(observations)} observations")
 
     # Transform
     logger.info("[ TRANSFORM ] Starting data transformation")
-    df = run_transform(raw_file)
+    df = run_transform(observations)
     logger.info(f"[ TRANSFORM ] Complete — {len(df)} clean observations")
 
     # Load
@@ -62,5 +62,5 @@ def run_pipeline(config_path: str = "config.toml") -> None:
 
 
 if __name__ == "__main__":
-    config_path = sys.argv[1] if len(sys.argv) > 1 else "config.toml"
+    config_path = sys.argv[1] if len(sys.argv) > 1 else "etl/config.toml"
     run_pipeline(config_path)

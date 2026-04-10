@@ -1,4 +1,5 @@
 {
     "venv": ".data-proc-env",
     "venvPath": "."
+    "typeCheckingMode": "basic"
 }

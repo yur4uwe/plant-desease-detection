@@ -24,26 +24,27 @@
 | `id` | Unique observation identifier | `int` | `12345678` | Primary key |
 | `photos[].url` | URL of observation photograph | `str` | `https://...` | Image source for model training |
 | `taxon.name` | Scientific plant name | `str` | `Solanum lycopersicum` | Taxonomic label |
-| `annotations[].controlled_attribute_id` | Annotation type identifier | `int` | `9` | Disease/health status detection |
-| `annotations[].controlled_value.label` | Annotation value label | `str` | `Disease` | Binary label derivation |
+| `annotations[].controlled_attribute_id` | Annotation type identifier | `int` | `9` | Disease status verification |
+| `annotations[].controlled_value_id` | Annotation value identifier | `int` | `11` | Disease status verification |
 | `location` | Comma-separated lat/lon string | `str` | `50.4501,30.5234` | Geographic filtering |
 | `observed_on` | Observation date | `str` | `2024-03-15` | Temporal metadata |
 | `quality_grade` | Community verification status | `str` | `research` | Data quality filter |
 
 ### Potential Data Problems
-- **Missing labels:** `is_diseased` cannot always be derived — many observations lack disease annotations, resulting in `None` values that must be dropped during Transform
-- **Inconsistent coordinates:** `location` field is a raw string requiring parsing; may be absent or malformed
-- **Label noise:** Annotations are community-contributed and may be inaccurate
-- **Class imbalance:** Healthy plant observations significantly outnumber diseased ones in public data
-- **Image quality variance:** Real field photographs vary widely in resolution, focus, and lighting
+- **Sparse annotations:** Most iNaturalist observations lack disease annotations — binary label is assigned at the point of extraction based on the API query parameters.
+- **Inconsistent coordinates:** `location` field is a raw string requiring parsing; may be absent or malformed.
+- **Label noise:** Healthy observations are fetched without disease filter — some may in fact be diseased but unannotated.
+- **Class imbalance:** Balanced fetching strategy (alternating diseased/healthy pages) ensures an artificial 1:1 class ratio in the raw dataset.
+- **Image quality variance:** Real field photographs vary widely in resolution, focus, and lighting.
 
 ### Fields Used in Further Analysis
 - `external_id` — deduplication and traceability
 - `image_url` — future image download for model training
-- `is_diseased` — binary classification target label
+- `is_diseased` — binary classification target label assigned during extraction
 - `label` — taxonomic context
 - `observation_date` — temporal filtering and drift analysis
 - `latitude`, `longitude` — geographic distribution analysis
+- `extracted_at` — metadata for lineage tracking
 
 ---
 
@@ -52,24 +53,30 @@
 ```
 etl/
 ├── config/
-│   └── types.py          # TypedDict definitions for all config structures
+│   └── types.py                  # Pydantic models for configuration validation
 ├── sources/
-│   ├── interface.py           # Abstract base class and RawObservation dataclass
-│   ├── inaturalist.py    # iNaturalist API source implementation
+│   ├── interface.py              # Abstract base class and RawObservation dataclass
+│   └── inaturalist.py            # iNaturalist API source with internal balancing/caching
 ├── data/
-│   ├── raw/              # Raw JSONL files from Extract stage
-│   └── processed/        # Cleaned observations in SQLite
-├── logs/                 # ETL execution logs
-├── config.toml           # Pipeline configuration
-├── extract.py            # Extract stage orchestration
-├── transform.py          # Transform stage orchestration
-├── load.py               # Load stage orchestration
-└── pipeline.py           # Entry point — runs full ETL
+│   ├── raw/
+│   │   └── inaturalist/
+│   │       ├── diseased/         # Page-level JSON cache (diseased)
+│   │       └── healthy/          # Page-level JSON cache (healthy)
+│   └── processed/
+│       └── observations.db       # Cleaned observations in SQLite
+├── logs/                         # ETL execution logs
+├── config.toml                   # Pipeline configuration
+├── extract.py                    # Extract stage — source registry & execution
+├── transform.py                  # Transform stage — pandas cleaning pipeline
+├── load.py                       # Load stage — bulk SQLite ingestion
+└── pipeline.py                   # Entry point — orchestrates the full ETL
 ```
 
 ---
 
 ## 4. Configuration
+
+The pipeline uses `Pydantic` for runtime validation. If `config.toml` is missing required keys or contains invalid types, the pipeline will fail immediately with a descriptive error.
 
 ```toml
 [general]
@@ -80,16 +87,14 @@ processed_data_path = "data/processed"
 
 [sources.inaturalist]
 enabled = true
+refetch = false
 base_url = "https://api.inaturalist.org/v1"
 taxon_id = 47126        # Plantae
-term_id = 9             # Plant disease annotation
-per_page = 200          # Maximum allowed by API
-max_pages = 10
-rate_limit_seconds = 1.0
-
-[sources.kaggle]
-enabled = false
-dataset = "plantvillage/plantvillage-dataset"
+term_id = 9             # Plant health/disease
+term_value_id = 11      # Diseased
+per_page = 200          # API maximum
+max_pages = 10          # 10 diseased + 10 healthy = 4000 total
+rate_limit_seconds = 2.0
 
 [load]
 format = "sqlite"
@@ -101,160 +106,99 @@ table_name = "observations"
 
 ## 5. Module Descriptions
 
-### `config/types.py` — Configuration Type Definitions
-Defines `TypedDict` structures for all configuration sections — `GeneralConfig`, `iNaturalistSourceConfig`, `KaggleSourceConfig`, `SourcesConfig`, `LoadConfig`, and `AppConfig`. Enables strict static type checking across all modules without runtime overhead.
+### `config/types.py` — Configuration Models
+Defines `Pydantic` models (`AppConfig`, `GeneralConfig`, etc.) for strict runtime validation. Uses `HttpUrl` for URL validation and `Literal` for constrained string fields (e.g., `log_level`).
 
-### `sources/base.py` — Abstract Base and Data Contract
-Defines `RawObservation` dataclass — the strict typed contract that every source must produce regardless of its origin. Defines `BaseSource` abstract class with two required methods: `parse_config()` and `fetch()`. Adding a new data source requires only implementing these two methods in a new file under `sources/`.
+### `sources/interface.py` — Data Contract
+Defines the `RawObservation` dataclass — the universal format for all extracted data.
+- **Self-contained:** Includes `is_diseased` label assigned at the source.
+- **Serialization:** Includes `to_dict()` and `from_dict()` for cache interoperability.
 
-```python
-@dataclass
-class RawObservation:
-    source: str
-    external_id: str
-    image_url: str | None
-    label: str | None
-    is_diseased: bool | None
-    latitude: float | None
-    longitude: float | None
-    observation_date: datetime | None
-    raw_json: str  # JSON-serialized original response for debugging
-```
+### `sources/inaturalist.py` — iNaturalist Source
+Implements source-specific logic including:
+- **Balanced Fetching:** Alternates between diseased and healthy API queries to maintain a 1:1 class ratio.
+- **Internal Caching:** Manages its own directory-based JSON cache to avoid redundant network calls.
+- **Robust Parsing:** Converts raw API JSON directly into `RawObservation` objects.
 
-### `sources/inaturalist.py` — iNaturalist Source Implementation
-Implements `BaseSource` for the iNaturalist REST API. Key responsibilities:
-- `parse_config()` — validates and strictly types the raw TOML config section
-- `_fetch_page()` — retrieves a single page of observations with error handling for HTTP errors, connection errors, and timeouts
-- `_is_diseased()` — derives binary label from community annotations
-- `_parse_observation()` — maps raw API response to `RawObservation`
-- `fetch()` — generator that yields observations page by page with rate limiting
+### `extract.py` — Extract Registry
+Acts as a source factory. It loads the validated configuration, identifies all enabled sources, and executes their `fetch()` methods. It returns a unified `list[RawObservation]` to the pipeline.
 
-### `extract.py` — Extract Stage
-Loads configuration, instantiates the enabled source, collects all observations, and saves them to a timestamped JSONL file in `data/raw/`. Each line is a self-contained JSON record. Records the `extracted_at` timestamp on every observation.
-
-### `transform.py` — Transform Stage
-Loads raw JSONL, applies a sequential transformation pipeline, and validates the result against a Pandera schema before returning a clean DataFrame.
-
-Transformations applied:
-1. Column name normalization — strips whitespace, lowercases
-2. Duplicate removal — by `(source, external_id)` composite key
-3. Date parsing — `observation_date` to `datetime`
-4. Type casting — numeric coordinates, boolean `is_diseased`
-5. Invalid coordinate filtering — out-of-range lat/lon removed
-6. Missing label removal — observations without `is_diseased` dropped
-7. Schema validation — Pandera enforces types, ranges, and constraints
+### `transform.py` — Transform Pipeline
+Operates on a `list[RawObservation]` and produces a cleaned `pd.DataFrame`.
+1. **Deduplication:** Removes records with duplicate `(source, external_id)`.
+2. **Date Parsing:** Standardizes `observation_date` and `extracted_at` to timezone-naive UTC.
+3. **Type Casting:** Ensures correct numeric and boolean types.
+4. **Coordinate Filtering:** Removes rows with invalid latitude/longitude ranges.
+5. **Schema Validation:** Uses `Pandera` to enforce structural integrity before passing data to the Load stage.
 
 ### `load.py` — Load Stage
-Connects to SQLite, initializes the schema, and inserts clean observations using `INSERT OR IGNORE` for idempotent loading. Verifies record count after insertion.
+Uses an optimized bulk-loading strategy:
+1. **Temp Table:** Dumps the DataFrame into a temporary SQLite table.
+2. **Bulk Insert:** Executes `INSERT OR IGNORE INTO observations SELECT ... FROM temp_table` to handle idempotency efficiently.
+3. **Verification:** Logs the number of new records vs. duplicates and reports the final database count.
 
-SQLite schema:
-```sql
-CREATE TABLE IF NOT EXISTS observations (
-    id                INTEGER PRIMARY KEY AUTOINCREMENT,
-    source            TEXT    NOT NULL,
-    external_id       TEXT    NOT NULL,
-    image_url         TEXT,
-    label             TEXT,
-    is_diseased       INTEGER,
-    latitude          REAL,
-    longitude         REAL,
-    observation_date  TEXT,
-    extracted_at      TEXT    NOT NULL,
-    loaded_at         TEXT    NOT NULL,
-    UNIQUE (source, external_id)
-)
-```
-
-### `pipeline.py` — Entry Point
-Orchestrates the full ETL sequence: Extract → Transform → Load. Configures logging to both stdout and `logs/etl.log`. Accepts optional config path as a command-line argument.
-
-```bash
-python pipeline.py                    # uses config.toml
-python pipeline.py config_test.toml  # uses alternate config
-```
+### `pipeline.py` — Orchestrator
+The main entry point. It manages the high-level state:
+- Initializes logging.
+- Loads and validates configuration via Pydantic.
+- Passes the validated `AppConfig` down to sub-modules.
+- Coordinates the handover: `extract -> transform -> load`.
 
 ---
 
 ## 6. ETL Process Schema
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        EXTRACT                              │
-│  iNaturalist API → paginated fetch → RawObservation list   │
-│  → timestamped JSONL → data/raw/observations_YYYYMMDD.jsonl│
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                       TRANSFORM                             │
-│  Load JSONL → normalize → deduplicate → parse dates        │
-│  → cast types → filter invalid → drop missing labels       │
-│  → Pandera schema validation → clean DataFrame             │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                         LOAD                                │
-│  SQLite connection → init schema → INSERT OR IGNORE        │
-│  → verify count → data/processed/observations.db           │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                           EXTRACT                               │
+│  Registry identifies enabled sources (e.g., iNaturalist)        │
+│  Source handles:                                                │
+│    - Balanced page fetching (Diseased / Healthy)                │
+│    - Internal JSON caching                                      │
+│    - Direct mapping to RawObservation dataclasses               │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │ list[RawObservation]
+┌─────────────────────────▼───────────────────────────────────────┐
+│                         TRANSFORM                               │
+│  Pandas Pipeline:                                               │
+│    - Deduplicate → Parse Dates → Cast Types → Filter Coords     │
+│    - Pandera Schema Validation                                  │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │ pd.DataFrame
+┌─────────────────────────▼───────────────────────────────────────┐
+│                           LOAD                                  │
+│  Bulk Ingestion:                                                │
+│    - Create Temp Table → INSERT OR IGNORE → Clean up            │
+│    - verify count → data/processed/observations.db                │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 7. Raw vs Cleaned Data Examples
 
-### Raw observation (JSONL line from `data/raw/`):
-```json
-{
-  "source": "inaturalist",
-  "external_id": "12345678",
-  "image_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/123/medium.jpg",
-  "label": "Solanum lycopersicum",
-  "is_diseased": true,
-  "latitude": 50.4501,
-  "longitude": 30.5234,
-  "observation_date": "2024-03-15T00:00:00",
-  "extracted_at": "20240315_142301",
-  "raw_json": "{\"id\": 12345678, \"photos\": [...], ...}"
-}
-```
+### Raw Page Cache (`data/raw/inaturalist/diseased/page_1.json`):
+JSON-serialized list of `RawObservation` objects.
 
-### Cleaned observation (SQLite row from `data/processed/`):
+### Cleaned observation (SQLite row from `data/processed/observations.db`):
 
 | id | source | external_id | image_url | label | is_diseased | latitude | longitude | observation_date | extracted_at | loaded_at |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1 | inaturalist | 12345678 | https://... | Solanum lycopersicum | 1 | 50.4501 | 30.5234 | 2024-03-15 | 20240315_142301 | 2024-03-15T14:23:05Z |
+| 1 | inaturalist | 12345678 | https://... | Solanum lycopersicum | 1 | 50.4501 | 30.5234 | 2024-03-15 | 2026-04-10T13:14:38 | 2026-04-10T13:16:32 |
 
 ---
 
 ## 8. Error Handling
 
-| Error Type | Where | Handling Strategy |
-|---|---|---|
-| HTTP 4xx / 5xx | `_fetch_page()` | Log error, return empty list, continue to next page |
-| Connection timeout | `_fetch_page()` | Log error, return empty list, continue to next page |
-| Missing config key | `parse_config()` | Raise `KeyError` immediately at startup |
-| Invalid config value | `parse_config()` | Raise `ValueError` immediately at startup |
-| Unparseable date | `parse_observed_on()` | Log warning, return `None` |
-| Invalid coordinates | `drop_invalid_coordinates()` | Log count, drop affected rows |
-| Missing disease label | `drop_missing_labels()` | Log count, drop affected rows |
-| Schema validation failure | `observation_schema.validate()` | Raise `SchemaError` with detailed report |
-| SQLite insert failure | `load_observations()` | Log error per record, continue with remaining |
-| No enabled source | `run_extract()` | Log error, exit with code 1 |
+| Error Type | Handling Strategy |
+|---|---|
+| Invalid Configuration | Pydantic raises `ValidationError` at startup; pipeline exits. |
+| API Failure | Log error, return partial results from cache if available. |
+| Schema Violation | Pandera raises `SchemaError` during Transformation; pipeline stops. |
+| DB Constraint | `INSERT OR IGNORE` silently skips duplicates; reported in final count. |
+| Timezone Mismatch | Transform stage localizes all timestamps to naive UTC to satisfy validation. |
 
 ---
 
-## 9. Dataset Suitability Assessment
-
-### Strengths
-- Real field photography conditions closely match intended deployment environment
-- Research-grade quality filter removes unverified observations
-- Multi-source architecture allows dataset expansion without pipeline changes
-- Raw JSON preserved for every observation enabling label correction without re-fetching
-
-### Limitations
-- Binary label derivation from annotations is imprecise — a significant portion of observations will have `is_diseased = None` and be dropped
-- Class imbalance between healthy and diseased observations is expected and must be addressed during model training through oversampling or weighted loss
-- Dataset does not yet include downloaded images — `download_images = false` in current config; must be enabled before model training stage
-
-### Conclusion
-The dataset obtained through this ETL pipeline is suitable for the next project stage. It provides a structured, validated, and reproducible collection of plant observation metadata with binary disease labels derived from community annotations. The raw JSON layer ensures full traceability and the ability to re-derive labels without API re-fetching. Image downloading is architecturally supported and can be activated via a single configuration change when the model training stage begins.
+## 9. Conclusion
+The refactored ETL pipeline provides a robust, type-safe, and highly efficient foundation for data collection. By moving to a decentralized source architecture and utilizing `Pydantic` and `Pandera` for multi-layered validation, the system ensures that only high-quality, balanced data reaches the final training set. The bulk loading optimization significantly improves performance for large-scale data ingestion.

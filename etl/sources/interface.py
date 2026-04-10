@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
-from _collections_abc import Iterator
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from datetime import datetime
 
@@ -16,9 +16,9 @@ class RawObservation:
     longitude: float | None
     observation_date: datetime | None
     extracted_at: datetime | None
-    raw_json: str  # json.dumps(cast(dict[str, Any], raw))
+    raw_json: str
 
-    def to_dict(self) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["observation_date"] = (
             self.observation_date.isoformat()
@@ -37,17 +37,17 @@ class RawObservation:
             external_id=d["external_id"],
             image_url=d["image_url"],
             label=d["label"],
-            is_diseased=d["is_diseased"],
-            latitude=d["latitude"],
-            longitude=d["longitude"],
+            is_diseased=bool(d["is_diseased"]),
+            latitude=d.get("latitude"),
+            longitude=d.get("longitude"),
             observation_date=(
                 datetime.fromisoformat(d["observation_date"])
-                if d["observation_date"] is not None
+                if d.get("observation_date") is not None
                 else None
             ),
             extracted_at=(
                 datetime.fromisoformat(d["extracted_at"])
-                if d["extracted_at"] is not None
+                if d.get("extracted_at") is not None
                 else None
             ),
             raw_json=d["raw_json"],
@@ -57,10 +57,5 @@ class RawObservation:
 class SourceInterface(ABC):
     @abstractmethod
     def fetch(self) -> Iterator[RawObservation]:
-        """Fetches raw observations from the source"""
-        pass
-
-    @abstractmethod
-    def parse_conf(self, conf: dict[str, Any]) -> Any:  # pyright: ignore[reportExplicitAny, reportAny]
-        """Validates configuration setup"""
+        """Fetches raw observations from the source, handling its own caching and balance."""
         pass
