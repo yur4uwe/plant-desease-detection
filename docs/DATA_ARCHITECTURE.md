@@ -190,7 +190,22 @@ api -> db : log inference metadata
 **Figure 4:** Model Inference Diagram.
 *Actual Image is in docs/images/data_architecture_model_inference.png*
 
-## 8. Scalability, Security, and Performance Analysis
+## 8. Supplementary Metadata Enrichment
+The architecture includes an optional **Metadata Enrichment Layer** that derives environmental context from raw spatio-temporal metadata. This provides additional analytical depth for auditing model performance across different scenarios.
+
+### Enrichment Flow
+1.  **Input:** Raw `latitude`, `longitude`, and `observation_date`.
+2.  **Processing:** 
+    *   **Solar Approximation:** Estimates sun position to tag photos as "Daylight" or "Dusk/Dawn".
+    *   **Seasonal Estimation:** Uses latitude and date to approximate the biological season.
+3.  **Storage:** Observations are tagged with these attributes in the SQLite database, allowing for filtered performance reports.
+
+### Analytical Value
+This supporting feature allows the project to:
+-   Analyze if the model maintains consistent performance across different light levels.
+-   Identify if specific seasonal changes (e.g., Autumn leaf color) impact classification accuracy.
+
+## 9. Scalability, Security, and Performance Analysis
 
 *   **Scalability:** The current local Lakehouse approach (SQLite + local folders) is perfectly scaled for the 16-week timeline and the volume of images (tens of thousands). If the data grows to millions of rows or requires multi-user write access, the architecture is designed to easily swap SQLite for **PostgreSQL** and local folders for **AWS S3 / Google Cloud Storage**.
 *   **Performance Bottlenecks & Solutions:** The primary bottleneck is the iNaturalist API rate limit and page size (200 items/page). This is mitigated by **local JSON caching** at the extraction layer, meaning the transformation pipeline can be iterated on instantly without waiting for network I/O. Inference time constraints (≤ 3s) will be addressed via model optimization (e.g., quantization) rather than data architecture changes.

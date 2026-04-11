@@ -45,6 +45,18 @@ def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    SUPPLEMENTARY ENRICHMENT:
+    Derives approximate environmental context from (latitude, longitude, date)
+    to support secondary analysis of model performance across conditions:
+    - Solar Status (Dawn/Dusk/Daylight)
+    - Seasonal Context (Growing/Dormant)
+    """
+    # NOTE: Implementation planned for Step 3/4 of the development cycle.
+    return df
+
+
 def cast_types(df: pd.DataFrame) -> pd.DataFrame:
     df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
@@ -81,6 +93,7 @@ def run_transform(observations: list[RawObservation]) -> pd.DataFrame:
 
     df = drop_duplicates(df)
     df = parse_dates(df)
+    df = enrich_environmental_metadata(df)
     df = cast_types(df)
     df = drop_invalid_coordinates(df)
 

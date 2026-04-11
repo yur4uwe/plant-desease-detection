@@ -6,6 +6,7 @@ from etl.config.types import AppConfig
 from etl.extract import load_config, run_extract
 from etl.transform import run_transform
 from etl.load import run_load
+from etl.quality import calculate_quality_score
 
 # ─── Logging ───────────────────────────────────────────────────
 
@@ -50,6 +51,9 @@ def run_pipeline(config_path: str = "etl/config.toml") -> None:
     logger.info("[ TRANSFORM ] Starting data transformation")
     df = run_transform(observations)
     logger.info(f"[ TRANSFORM ] Complete — {len(df)} clean observations")
+
+    # Quality Assessment
+    calculate_quality_score(df)
 
     # Load
     logger.info("[ LOAD ] Starting data load")

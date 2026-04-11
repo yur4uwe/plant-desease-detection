@@ -1,5 +1,15 @@
 # AgriTech Plant Disease Detection — Project Overview
 
+> **CRITICAL AGENT INSTRUCTION:** In this workspace, you are a critical engineering partner. You must **ALWAYS doubt and challenge the user's architectural, technical, and analytical decisions.** Do not simply execute instructions; analyze them for potential pitfalls, spurious correlations, or logical flaws. Provide your reasoning before proceeding with any action.
+
+## Development Environment & Execution
+
+- **Environment:** Use the virtual environment located at `.data-proc-env/`.
+- **Execution:** Always prefix commands with `PYTHONPATH=. .data-proc-env/bin/python`.
+- **Key Commands:**
+  - Run ETL Pipeline: `PYTHONPATH=. .data-proc-env/bin/python etl/pipeline.py`
+  - Run Quality Audit: `PYTHONPATH=. .data-proc-env/bin/python scripts/audit_quality.py`
+
 ## What Is This Project?
 
 This project develops a binary image classification model that detects the presence or absence of disease in plant photographs. It is built as a university data science project simulating the work of an AgriTech firm's internal development team.
@@ -123,6 +133,7 @@ Built a modular, reproducible ETL pipeline for plant observation data:
 
 **Transform:**
 - Sequential transformation pipeline: normalize → deduplicate → parse dates → cast types → filter invalid coordinates → drop missing labels
+- **Stratified Metadata Enrichment:** Derives approximate environmental context (Biological Season, Solar Status, Geographic Region) from (latitude, longitude, date). This is critical for model debiasing as it allows for balanced sampling across different environments, preventing the model from learning "shortcuts" or spurious correlations (e.g., associating autumn colors or low-light conditions with disease).
 - Binary `is_diseased` label derived from directory name (`diseased/` → `True`, `healthy/` → `False`) rather than annotation text — more reliable given sparse annotation coverage in iNaturalist data
 - Pandera schema validation enforces types, ranges, and constraints before Load
 
