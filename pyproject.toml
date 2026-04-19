@@ -13,6 +13,8 @@ dependencies = [
     "openmeteo-requests",
     "requests-cache",
     "retry-requests",
+    "pytest",
+    "pytest-mock",
 ]
 
 [tool.setuptools.packages.find]

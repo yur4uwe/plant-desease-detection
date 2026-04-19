@@ -42,6 +42,15 @@ class iNaturalistSource(SourceInterface):
             except (ValueError, IndexError):
                 pass
 
+        # Try to get date with hour for better solar status calculation
+        obs_date = self._parse_date(raw.get("observed_on"))
+        details = raw.get("observed_on_details")
+        if obs_date and details and "hour" in details:
+            try:
+                obs_date = obs_date.replace(hour=int(details["hour"]))
+            except (ValueError, TypeError):
+                pass
+
         return RawObservation(
             source="inaturalist",
             external_id=str(raw["id"]),
@@ -50,7 +59,7 @@ class iNaturalistSource(SourceInterface):
             is_diseased=is_diseased,
             latitude=lat,
             longitude=lon,
-            observation_date=self._parse_date(raw.get("observed_on")),
+            observation_date=obs_date,
             extracted_at=datetime.now(timezone.utc),
             raw_json=json.dumps(raw),
         )
