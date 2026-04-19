@@ -191,19 +191,22 @@ api -> db : log inference metadata
 *Actual Image is in docs/images/data_architecture_model_inference.png*
 
 ## 8. Supplementary Metadata Enrichment
-The architecture includes an optional **Metadata Enrichment Layer** that derives environmental context from raw spatio-temporal metadata. This provides additional analytical depth for auditing model performance across different scenarios.
+The architecture includes an active **Metadata Enrichment Layer** that derives environmental context from raw spatio-temporal metadata and external APIs. This provides crucial analytical depth for auditing model performance across different scenarios.
 
 ### Enrichment Flow
 1.  **Input:** Raw `latitude`, `longitude`, and `observation_date`.
 2.  **Processing:** 
-    *   **Solar Approximation:** Estimates sun position to tag photos as "Daylight" or "Dusk/Dawn".
-    *   **Seasonal Estimation:** Uses latitude and date to approximate the biological season.
+    *   **Solar Approximation:** Uses the `astral` library to precisely estimate sun position to tag photos as "Daylight", "Dusk/Dawn", "Night", or "Polar".
+    *   **Seasonal Estimation:** Uses hemisphere and month to map the biological season.
+    *   **Weather Fetcher:** Queries the Open-Meteo Historical API for daily temperature and precipitation.
 3.  **Storage:** Observations are tagged with these attributes in the SQLite database, allowing for filtered performance reports.
 
 ### Analytical Value
 This supporting feature allows the project to:
+-   **Model Debiasing:** By creating balanced test subsets (e.g., 50% Daylight, 50% Dusk), we prevent the model from learning spurious lighting shortcuts.
 -   Analyze if the model maintains consistent performance across different light levels.
 -   Identify if specific seasonal changes (e.g., Autumn leaf color) impact classification accuracy.
+-   Identify if weather conditions (e.g., heavy precipitation) influence disease manifestation in photos.
 
 ## 9. Scalability, Security, and Performance Analysis
 

@@ -127,9 +127,10 @@ Acts as a source factory. It loads the validated configuration, identifies all e
 Operates on a `list[RawObservation]` and produces a cleaned `pd.DataFrame`.
 1. **Deduplication:** Removes records with duplicate `(source, external_id)`.
 2. **Date Parsing:** Standardizes `observation_date` and `extracted_at` to timezone-naive UTC.
-3. **Metadata Enrichment (Optional):** Derives approximate context from spatio-temporal metadata:
-    - **Solar Status:** Categorizes sun position as "Daylight" or "Dusk/Dawn".
-    - **Seasonal Context:** Maps `latitude` and `date` to biological seasons for analytical auditing.
+3. **Metadata Enrichment:** Derives exact context from spatio-temporal metadata to prevent spurious correlations:
+    - **Solar Status:** Uses precise astronomical calculations (`astral`) to categorize sun position as "Daylight", "Dusk/Dawn", "Night", or "Polar".
+    - **Seasonal Context:** Maps `latitude` and `date` to biological seasons (Spring/Summer/Autumn/Winter).
+    - **Weather:** Fetches historical `temperature` and `precipitation` data via the Open-Meteo API.
 4. **Type Casting:** Ensures correct numeric and boolean types.
 5. **Coordinate Filtering:** Removes rows with invalid latitude/longitude ranges.
 6. **Schema Validation:** Uses `Pandera` to enforce structural integrity before passing data to the Load stage.

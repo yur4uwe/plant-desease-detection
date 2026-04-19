@@ -10,7 +10,7 @@ The primary data source is the **iNaturalist API**, providing plant observations
 - Annotations (diseased/healthy indicators) — The target label for supervised learning.
 
 ### Stratified Metadata Enrichment
-The system derives approximate environmental context (Biological Season, Solar Status, Geographic Region) from (latitude, longitude, date) **when available**. This is a powerful tool for **model debiasing** — by categorizing observations into these bins, we can perform stratified sampling to ensure the model does not learn "shortcuts" or spurious correlations (e.g., associating low-light conditions or specific seasons with disease status).
+The system derives environmental context (Biological Season, Solar Status, Weather) from (latitude, longitude, date) using exact astronomical calculations and historical weather APIs. This is a powerful tool for **model debiasing** — by categorizing observations into these bins, we perform stratified sampling to ensure the model does not learn "shortcuts" or spurious correlations (e.g., associating low-light conditions, specific seasons, or heavy precipitation with disease status).
 
 ### Criticality of Data Quality
 Data quality ensures the reliability of the training pipeline:

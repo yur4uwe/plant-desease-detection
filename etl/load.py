@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS observations (
     observation_date  TEXT,
     extracted_at      TEXT    NOT NULL,
     loaded_at         TEXT    NOT NULL,
+    season            TEXT,
+    solar_status      TEXT,
+    temperature       REAL,
+    precipitation     REAL,
     UNIQUE (source, external_id)
 )
 """
@@ -85,6 +89,10 @@ def load_observations(conn: sqlite3.Connection, df: pd.DataFrame) -> int:
         "observation_date",
         "extracted_at",
         "loaded_at",
+        "season",
+        "solar_status",
+        "temperature",
+        "precipitation",
     ]
 
     # Use INSERT OR IGNORE via temporary table for bulk performance

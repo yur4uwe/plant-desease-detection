@@ -9,6 +9,10 @@ dependencies = [
     "requests",
     "pandas",
     "pandera",
+    "astral",
+    "openmeteo-requests",
+    "requests-cache",
+    "retry-requests",
 ]
 
 [tool.setuptools.packages.find]

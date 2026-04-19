@@ -1,7 +1,11 @@
 import logging
 import pandas as pd
 import pandera.pandas as pa
-from pandera import DataFrameSchema, Column, Check
+from pandera.pandas import DataFrameSchema, Column, Check
+from datetime import datetime, timezone
+from astral import Observer
+from astral.sun import sun
+from etl.sources.weather import get_weather_for_location
 
 from etl.sources.interface import RawObservation
 
@@ -20,6 +24,10 @@ observation_schema = DataFrameSchema(
         "longitude": Column(float, nullable=True, checks=Check.in_range(-180, 180)),
         "observation_date": Column(pa.DateTime, nullable=True),
         "extracted_at": Column(pa.DateTime, nullable=False),
+        "season": Column(str, nullable=True),
+        "solar_status": Column(str, nullable=True),
+        "temperature": Column(float, nullable=True),
+        "precipitation": Column(float, nullable=True),
     }
 )
 
@@ -45,15 +53,89 @@ def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _get_season(lat: float, month: int) -> str | None:
+    if pd.isna(lat) or pd.isna(month):
+        return None
+    if lat > 0:  # Northern Hemisphere
+        if month in [3, 4, 5]: return "Spring"
+        if month in [6, 7, 8]: return "Summer"
+        if month in [9, 10, 11]: return "Autumn"
+        return "Winter"
+    else:  # Southern Hemisphere
+        if month in [3, 4, 5]: return "Autumn"
+        if month in [6, 7, 8]: return "Winter"
+        if month in [9, 10, 11]: return "Spring"
+        return "Summer"
+
+def _get_solar_status(lat: float, lon: float, dt: datetime) -> str | None:
+    if pd.isna(lat) or pd.isna(lon) or pd.isna(dt):
+        return None
+    try:
+        obs = Observer(latitude=lat, longitude=lon)
+        # Assume dt is UTC. If naive, localize to UTC for astral to work reliably.
+        if dt.tzinfo is None:
+            dt_utc = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt_utc = dt.astimezone(timezone.utc)
+            
+        s = sun(obs, date=dt_utc.date())
+        
+        if dt_utc < s["dawn"] or dt_utc > s["dusk"]:
+            return "Night"
+        elif s["dawn"] <= dt_utc < s["sunrise"] or s["sunset"] < dt_utc <= s["dusk"]:
+            return "Dusk/Dawn"
+        else:
+            return "Daylight"
+    except ValueError:
+        # Sun remains above/below horizon (polar day/night)
+        # A simple fallback: checking month and hemisphere
+        if lat > 66.5 and dt.month in [5, 6, 7, 8]: return "Daylight"
+        if lat > 66.5 and dt.month in [11, 12, 1, 2]: return "Night"
+        if lat < -66.5 and dt.month in [11, 12, 1, 2]: return "Daylight"
+        if lat < -66.5 and dt.month in [5, 6, 7, 8]: return "Night"
+        return "Polar"
+    except Exception as e:
+        logger.warning(f"Astral calculation failed for lat={lat} lon={lon} dt={dt}: {e}")
+        return None
+
 def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
     """
-    SUPPLEMENTARY ENRICHMENT:
-    Derives approximate environmental context from (latitude, longitude, date)
-    to support secondary analysis of model performance across conditions:
-    - Solar Status (Dawn/Dusk/Daylight)
-    - Seasonal Context (Growing/Dormant)
+    Derives approximate environmental context (season, solar status, weather).
     """
-    # NOTE: Implementation planned for Step 3/4 of the development cycle.
+    logger.info("Enriching environmental metadata (Season, Solar Status, Weather)")
+    
+    # Use lists to build columns faster than df.at iterrows
+    seasons = []
+    solar_statuses = []
+    temperatures = []
+    precipitations = []
+    
+    for _, row in df.iterrows():
+        lat = row["latitude"]
+        lon = row["longitude"]
+        obs_date = row["observation_date"]
+        
+        season = None
+        solar = None
+        temp = None
+        precip = None
+
+        if pd.notna(lat) and pd.notna(lon) and pd.notna(obs_date):
+            season = _get_season(lat, obs_date.month)
+            solar = _get_solar_status(lat, lon, obs_date)
+            date_str = obs_date.strftime("%Y-%m-%d")
+            temp, precip = get_weather_for_location(lat, lon, date_str)
+            
+        seasons.append(season)
+        solar_statuses.append(solar)
+        temperatures.append(temp)
+        precipitations.append(precip)
+
+    df["season"] = seasons
+    df["solar_status"] = solar_statuses
+    df["temperature"] = temperatures
+    df["precipitation"] = precipitations
+
     return df
 
 

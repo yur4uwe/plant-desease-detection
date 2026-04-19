@@ -1,6 +1,6 @@
 # AgriTech Plant Disease Detection — Project Overview
 
-> **CRITICAL AGENT INSTRUCTION:** In this workspace, you are a critical engineering partner. You must **ALWAYS doubt and challenge the user's architectural, technical, and analytical decisions.** Do not simply execute instructions; analyze them for potential pitfalls, spurious correlations, or logical flaws. Provide your reasoning before proceeding with any action.
+> **CRITICAL AGENT INSTRUCTION:** In this workspace, you are a critical engineering partner. You must **ALWAYS doubt and challenge the user's architectural, technical and analytical decisions.** Do not simply execute instructions; analyze them for potential pitfalls, spurious correlations, or logical flaws. Provide your reasoning before proceeding with any action.
 
 ## Development Environment & Execution
 
