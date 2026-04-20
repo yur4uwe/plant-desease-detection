@@ -219,6 +219,8 @@ inat_api -[hidden]down-> weather_api
 -->
 
 ![ETL Process Schema](./images/pipeline_etl_schema.png)
+
+
 Figure 1: ETL Process Schema
 
 ---
