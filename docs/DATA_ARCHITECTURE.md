@@ -14,7 +14,7 @@ The primary source of data is the **iNaturalist API**, which provides access to 
 *   **Update Frequency:** Continuous (new observations are added daily)
 *   **Key Attributes:** `id`, `image_url`, `taxon.name`, `location`, `observed_on`, `quality_grade`
 *   **Data Quality Challenges & Handling:**
-    *   **Sparse annotations:** Handled by a balanced fetching strategy using specific API query parameters (`term_id=9`, `term_value_id=11` for diseased, and without it for healthy).
+    *   **Sparse annotations:** Handled by a project-based fetching strategy pulling from verified plant pathology projects for diseased observations, and filtering them out for healthy controls.
     *   **Inconsistent coordinates:** Handled via filtering out-of-bounds latitude/longitude during transformation.
     *   **Label noise:** Observations are restricted to `research` grade where possible to maximize reliability.
 
@@ -29,6 +29,7 @@ This constitutes a localized **Lakehouse** approach: raw, unstructured data sits
 ## 4. Entity-Relationship Model
 The following ER diagram maps the structured metadata stored in our SQLite database, alongside the physical image files stored on disk.
 
+<!--
 ```plantuml
 @startuml
 skinparam backgroundColor white
@@ -71,9 +72,10 @@ end note
 
 @enduml
 ```
+-->
 
 **Figure 1:** ER Diagram of Observation metadata and physical RawImageFiles.
-*Actual Image is in docs/images/data_architecture_observations_ER.png*
+![ER Diagram of Observation metadata](images/data_architecture_observations_ER.png)
 
 ## 5. Integration Design
 The architecture utilizes a custom Python-based **ETL (Extract, Transform, Load)** pipeline.
@@ -86,6 +88,7 @@ The architecture utilizes a custom Python-based **ETL (Extract, Transform, Load)
 ## 6. Data Architecture Diagram
 The diagram below illustrates the end-to-end flow of data from the source to the eventual Machine Learning module.
 
+<!--
 ```plantuml
 @startuml
 left to right direction
@@ -131,14 +134,16 @@ img_cache --> ml : loads images into tensors
 
 @enduml
 ```
+-->
 
 **Figure 2:** Data Pipeline Diagram.
-*Actual Image is in docs/images/data_architecture_pipeline.png*
+![Data Pipeline Diagram](images/data_architecture_pipeline.png)
 
 ## 7. Data Usage Scenarios
 The following sequence diagrams illustrate the two primary scenarios for data utilization in the system.
 
 ### Scenario 1: Scheduled ETL Ingestion
+<!--
 ```plantuml
 @startuml
 actor "Orchestrator\n(pipeline.py)" as orch
@@ -163,11 +168,13 @@ orch -> db : bulk load (INSERT OR IGNORE)
 db --> orch : loading stats & verification
 @enduml
 ```
+-->
 
 **Figure 3:** ETL Pipeline Diagram.
-*Actual Image is in docs/images/data_architecture_orchestration.png*
+![ETL Pipeline Diagram](images/data_architecture_orchestration.png)
 
 ### Scenario 2: Model Inference (Future User Flow)
+<!--
 ```plantuml
 @startuml
 actor "Farm Owner" as user
@@ -186,9 +193,10 @@ api --> user : return result (under 3 seconds)
 api -> db : log inference metadata
 @enduml
 ```
+-->
 
 **Figure 4:** Model Inference Diagram.
-*Actual Image is in docs/images/data_architecture_model_inference.png*
+![Model Inference Diagram](images/data_architecture_model_inference.png)
 
 ## 8. Supplementary Metadata Enrichment
 The architecture includes an active **Metadata Enrichment Layer** that derives environmental context from raw spatio-temporal metadata and external APIs. This provides crucial analytical depth for auditing model performance across different scenarios.

@@ -10,11 +10,10 @@ refetch = false
 
 base_url = "https://api.inaturalist.org/v1"
 taxon_id = 47126        # Plantae
-term_id = 9             # хвороба рослини
-term_value_id = 11
+project_ids = [49595, 124267, 227684, 47428, 255039]
 per_page = 200          # максимум дозволений API
-max_pages = 10
-rate_limit_seconds = 2.0
+max_pages = 5
+rate_limit_seconds = 5.0
 
 [sources.kaggle]
 enabled = false

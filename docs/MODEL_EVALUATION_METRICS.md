@@ -18,23 +18,25 @@ From a business perspective, a high-quality model is one that acts as a highly s
 
 The choice of evaluation metrics is heavily dictated by the specific characteristics of our dataset, verified during the Data Quality Audit.
 
-1. **Severe Class Imbalance:** The dataset exhibits an **18% Diseased / 82% Healthy** split. While this accurately reflects the real-world baseline distribution (most crops are healthy), it makes standard metrics like Accuracy highly deceptive.
+1. **Severe Class Imbalance:** The dataset exhibits an **~29% Diseased / ~71% Healthy** split. While this accurately reflects the real-world baseline distribution (most crops are healthy), it makes standard metrics like Accuracy highly deceptive.
 2. **Spatiotemporal Dependency:** The visual appearance of crops changes based on the Biological Season (e.g., autumn coloring) and Solar Status (e.g., dawn shadows vs. midday glare). The metrics must be robust across these varying conditions.
 3. **Business Cost of Errors:**
    - **False Negative (Missed Disease):** High financial cost. The disease spreads unchecked.
    - **False Positive (False Alarm):** Moderate financial cost. An agronomist is called unnecessarily.
 
+(Note: add here actual image. syntax below is incorrect)
+
 ```plantuml
 @startuml
-title Real-World Class Imbalance (Audit Verified)
+title Class Imbalance (Audit Verified)
 pie
-    "Healthy (True Negatives waiting to happen)" : 82
-    "Diseased (True Positives we must catch)" : 18
+    "Healthy (True Negatives waiting to happen)" : 71
+    "Diseased (True Positives we must catch)" : 29
 @enduml
 ```
 
 **Why standard metrics fail here:**
-- **Accuracy:** In an 18/82 dataset, a naive model that simply predicts "Healthy" for every single image will achieve 82% accuracy. This looks excellent on paper but has 0% utility for the business. Accuracy is deprecated as a primary metric for this project.
+- **Accuracy:** In a ~29/71 dataset, a naive model that simply predicts "Healthy" for every single image will achieve ~71% accuracy. This looks excellent on paper but has 0% utility for the business. Accuracy is deprecated as a primary metric for this project.
 - **ROC-AUC:** Because the "Healthy" class is so large, the False Positive Rate (FPR) will remain artificially low even if there are many false alarms, causing the ROC curve to look overly optimistic.
 
 ---
@@ -45,7 +47,7 @@ Given the binary classification task and the severe class imbalance, the followi
 
 | Metric | Formal Name | Meaning & Interpretation | Justification for this Project |
 | :--- | :--- | :--- | :--- |
-| **F1-Score** (Primary) | F1-Score (Macro/Weighted) | The harmonic mean of Precision and Recall. Range: 0.0 to 1.0 (Higher is better). | F1-Score penalizes models that blindly predict the majority class. It forces the model to balance catching diseases without triggering too many false alarms. |
+| **F1-Score** (Primary) | F1-Score (Macro/Weighted) | The harmonic mean of Precision and Recall.Range: 0.0 to 1.0 (Higher is better). | F1-Score penalizes models that blindly predict the majority class. It forces the model to balance catching diseases without triggering too many false alarms. |
 | **Recall** (Secondary) | Sensitivity / True Positive Rate | Of all the plants that are *actually* diseased, what percentage did we detect? (Higher is better). | Critical for the business: missing a disease (False Negative) is the most expensive error. We want Recall to be as close to 100% as possible. |
 | **PR-AUC** (Secondary) | Precision-Recall Area Under Curve | The area under the PR curve across various thresholds. Range: 0.0 to 1.0 (Higher is better). | Unlike ROC-AUC, PR-AUC focuses entirely on the minority class (Diseased) and ignores the massive number of True Negatives (Healthy). It gives a true picture of performance. |
 
@@ -56,9 +58,7 @@ Given the binary classification task and the severe class imbalance, the followi
 Beyond statistical classification metrics, the model must be evaluated against operational and bias constraints.
 
 1. **Inference Speed (Latency):** The time taken to process a single image and return a prediction must be **≤ 3 seconds**. (Crucial for user experience in the field).
-2. **Sub-population Stability (Debiasing):** The model must be evaluated not just on the global test set, but independently on stratified slices derived during the ETL phase. The F1-Score must not degrade by more than 10% when evaluated exclusively on:
-   - `solar_status = 'Dusk/Dawn'` vs. `solar_status = 'Daylight'`
-   - `season = 'Winter'` vs. `season = 'Summer'`
+2. **Sub-population Stability (Debiasing):** The model must be evaluated not just on the global test set, but independently on stratified slices derived during the ETL phase. The F1-Score must not degrade by more than 10% when evaluated exclusively on: `season = 'Winter'` vs. `season = 'Summer'`
 3. **Interpretability:** Model predictions should ideally be supported by techniques like Grad-CAM (Gradient-weighted Class Activation Mapping) to highlight the regions of the image that triggered the "Diseased" classification.
 
 ---
@@ -70,11 +70,10 @@ To ensure reliable evaluation, the data will be split using a Stratified strateg
 
 ```plantuml
 @startuml
-skinparam handwritten false
 skinparam packageStyle rectangle
 
-package "Database (6400+ rows)" {
-  [Raw Observations\n(18% Diseased, 82% Healthy)] as DB
+package "Database" {
+  [Raw Observations\n(~29% Diseased, ~71% Healthy)] as DB
 }
 
 node "Stratified Split Engine" {
@@ -99,6 +98,8 @@ S3 --> Val
 S3 --> Test
 @enduml
 ```
+
+(Note: actual image is in docs/images/model_evaluation_metrics_split_strategy.png)
 
 ### The Decision Rule
 When comparing multiple candidate models (e.g., ResNet vs. MobileNet, or different hyperparameters), the following strict hierarchy applies:

@@ -14,8 +14,7 @@ class iNaturalistSourceConfig(BaseModel):
     refetch: bool = False
     base_url: HttpUrl = Field(..., description="API base URL")
     taxon_id: int = 47126  # Plantae
-    term_id: int = 9       # Plant health/disease
-    term_value_id: int = 11  # Diseased
+    project_ids: list[int] = Field(default_factory=list)
     per_page: int = Field(200, gt=0, le=200)
     max_pages: int = Field(10, gt=0)
     rate_limit_seconds: float = Field(2.0, ge=0)

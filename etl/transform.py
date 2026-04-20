@@ -6,7 +6,7 @@ from pandera.pandas import DataFrameSchema, Column, Check
 from datetime import datetime, timezone
 from astral import Observer
 from astral.sun import sun
-from etl.sources.weather import get_weather_for_location
+from etl.sources.weather import get_weather_bulk
 
 from etl.sources.interface import RawObservation
 
@@ -115,49 +115,66 @@ def _get_solar_status(lat: float, lon: float, dt: datetime) -> str | None:
 
 def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Derives approximate environmental context (season, solar status, weather).
+    Derives approximate environmental context (season, solar status, weather) efficiently.
     """
     logger.info("Enriching environmental metadata (Season, Solar Status, Weather)")
 
-    # Use lists to build columns faster than df.at iterrows
-    seasons = []
-    solar_statuses = []
-    temperatures = []
-    precipitations = []
+    # 1. Vectorized Season & Solar Status
+    # Using apply for complex logic, but it's still better than row-by-row manual list building
+    df["season"] = df.apply(
+        lambda row: _get_season(row["latitude"], row["observation_date"].month)
+        if pd.notna(row["latitude"]) and pd.notna(row["observation_date"])
+        else None,
+        axis=1,
+    )
+    df["solar_status"] = df.apply(
+        lambda row: _get_solar_status(
+            row["latitude"], row["longitude"], row["observation_date"]
+        )
+        if pd.notna(row["latitude"])
+        and pd.notna(row["longitude"])
+        and pd.notna(row["observation_date"])
+        else None,
+        axis=1,
+    )
 
-    for _, row in df.iterrows():
-        lat_var = row["latitude"]
-        lon_var = row["longitude"]
-        obs_date = row["observation_date"]
+    # 2. Optimized Bulk Weather Fetching
+    weather_needed_mask = (
+        df["latitude"].notna() & df["longitude"].notna() & df["observation_date"].notna()
+    )
+    weather_needed = df[weather_needed_mask].copy()
 
-        season = None
-        solar = None
-        temp = None
-        precip = None
+    if not weather_needed.empty:
+        weather_needed["date_str"] = weather_needed["observation_date"].dt.strftime(
+            "%Y-%m-%d"
+        )
 
-        if (
-            isinstance(lat_var, (int, float))
-            and not math.isnan(float(lat_var))
-            and isinstance(lon_var, (int, float))
-            and not math.isnan(float(lon_var))
-            and isinstance(obs_date, pd.Timestamp)
-        ):
-            lat = float(lat_var)
-            lon = float(lon_var)
-            season = _get_season(lat, obs_date.month)
-            solar = _get_solar_status(lat, lon, obs_date)
-            date_str = obs_date.strftime("%Y-%m-%d")
-            temp, precip = get_weather_for_location(lat, lon, date_str)
+        # Identify unique location-date pairs to minimize API calls
+        unique_locs_df = weather_needed[["latitude", "longitude", "date_str"]].drop_duplicates()
+        unique_loc_list = [tuple(x) for x in unique_locs_df.values]
 
-        seasons.append(season)
-        solar_statuses.append(solar)
-        temperatures.append(temp)
-        precipitations.append(precip)
+        logger.info(f"Fetching weather for {len(unique_loc_list)} unique location-date pairs")
+        
+        # Call the bulk fetcher
+        weather_results = get_weather_bulk(unique_loc_list) # type: ignore
 
-    df["season"] = seasons
-    df["solar_status"] = solar_statuses
-    df["temperature"] = temperatures
-    df["precipitation"] = precipitations
+        # Create a mapping for quick lookup
+        flat_map = {
+            (lat, lon, date): res
+            for (lat, lon, date), res in zip(unique_loc_list, weather_results)
+        }
+
+        def _map_weather(row):
+            key = (
+                row["latitude"],
+                row["longitude"],
+                row["observation_date"].strftime("%Y-%m-%d"),
+            )
+            return flat_map.get(key, (None, None))
+
+        results = weather_needed.apply(_map_weather, axis=1)
+        df.loc[weather_needed_mask, "temperature"] = [r[0] for r in results]
+        df.loc[weather_needed_mask, "precipitation"] = [r[1] for r in results]
 
     return df
 

@@ -9,6 +9,7 @@
 - **Key Commands:**
   - Run ETL Pipeline: `PYTHONPATH=. .data-proc-env/bin/python etl/pipeline.py`
   - Run Quality Audit: `PYTHONPATH=. .data-proc-env/bin/python scripts/audit_quality.py`
+  - Run Unit Tests: `PYTHONPATH=. .data-proc-env/bin/pytest tests/`
 
 ## What Is This Project?
 
@@ -58,9 +59,13 @@ The deliverable is not a finished product but a complete, reproducible data scie
 ```
 proj-data-processing/
 ├── docs/                          # Project documentation
-│   ├── part1_project_planning.md
-│   ├── part2_requirements_analysis.md
-│   └── part3_etl_documentation.md
+│   ├── PROJECT_PLANNING.md        # Stage 1: Business context & SMART goals
+│   ├── PROJECT_REQUIREMENT_ANALYSIS.md # Stage 2: UML & Requirements (MoSCoW)
+│   ├── PIPELINE.md                # Stage 3: ETL implementation & transformations
+│   ├── DATA_ARCHITECTURE.md       # Architectural mapping & ER diagrams
+│   ├── DATA_QUALITY.md            # Quality audit reports & metrics
+│   ├── MODEL_EVALUATION_METRICS.md # Target ML metrics & evaluation strategy
+│   └── BUSINESS_EVALUATION.md     # Stage 4: Business KPIs & Integral evaluation
 ├── etl/                           # ETL pipeline
 │   ├── config/
 │   │   └── types.py
@@ -127,21 +132,35 @@ Built a modular, reproducible ETL pipeline for plant observation data:
 
 **Extract:**
 - Multi-source architecture with `BaseSource` abstract class — new sources require only implementing `parse_config()` and `fetch()`
+- **Project-based Validation:** Replaced faulty global term IDs with verified disease project IDs (e.g., North America Plant Diseases, PhD Pathogens) after a successful data migration.
 - Page-level disk caching under `data/raw/inaturalist/` — prevents redundant HTTP requests on re-runs
-- Alternating page strategy — odd pages query diseased observations (`term_id=9`, `term_value_id=11`), even pages query healthy observations — stored in separate `diseased/` and `healthy/` subdirectories
+- Alternating page strategy — fetches diseased observations from verified projects and healthy observations from general plant taxa (with project exclusion).
 - Strict typing throughout using `TypedDict` for API response structures and `iNaturalistConfig` for configuration
 
 **Transform:**
 - Sequential transformation pipeline: normalize → deduplicate → parse dates → cast types → filter invalid coordinates → drop missing labels
 - **Stratified Metadata Enrichment:** Derives approximate environmental context (Biological Season, Solar Status, Geographic Region) from (latitude, longitude, date). This is critical for model debiasing as it allows for balanced sampling across different environments, preventing the model from learning "shortcuts" or spurious correlations (e.g., associating autumn colors or low-light conditions with disease).
-- Binary `is_diseased` label derived from directory name (`diseased/` → `True`, `healthy/` → `False`) rather than annotation text — more reliable given sparse annotation coverage in iNaturalist data
-- Pandera schema validation enforces types, ranges, and constraints before Load
+- **Bulk Weather Optimization:** Uses Open-Meteo's bulk API to fetch weather data in chunks of 50 locations, significantly reducing API latency and respecting rate limits more efficiently than individual row-based calls.
+- Binary `is_diseased` label derived from verified project source — more reliable than generic API terms.
 
 **Load:**
-- SQLite storage with idempotent `INSERT OR IGNORE` — pipeline can be re-run safely without duplicating records
+- SQLite storage with idempotent `INSERT OR IGNORE` — pipeline can be re-run safely without churning through existing records
 - `UNIQUE (source, external_id)` constraint at database level
 - `loaded_at` timestamp recorded on every row
 - Post-load record count verification
+
+---
+
+### Stage 4 — Business Evaluation & Quality Assessment
+*See [docs/BUSINESS_EVALUATION.md](docs/BUSINESS_EVALUATION.md)*
+
+Formalized the business success metrics and integral quality evaluation system:
+
+- **Business Context:** Re-anchored the project in the AgriTech domain, focusing on compressing the detection cycle to reduce crop loss.
+- **KPI Definition:** Established 5 core business criteria: Cost Reduction (-40%), Risk Mitigation (< 5% loss), Decision Speed (< 3s), Efficiency (+300%), and Scalability (> 1000 RPM).
+- **ML/Business Alignment:** Explicitly linked ML metrics (Recall) to business outcomes (Risk Mitigation), justifying the prioritization of Recall over Precision.
+- **Integral Evaluation:** Implemented a weighted scoring model to calculate a total quality score (95.25%), categorizing the project as "High-Quality."
+- **Feasibility Recommendation:** Concluded the project's viability and recommended a pilot deployment with Active Learning integration.
 
 ---
 

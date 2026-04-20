@@ -10,7 +10,7 @@ The primary data source is the **iNaturalist API**, providing plant observations
 - Annotations (diseased/healthy indicators) — The target label for supervised learning.
 
 ### Stratified Metadata Enrichment
-The system derives environmental context (Biological Season, Solar Status, Weather) from (latitude, longitude, date) using exact astronomical calculations and historical weather APIs. This is a powerful tool for **model debiasing** — by categorizing observations into these bins, we perform stratified sampling to ensure the model does not learn "shortcuts" or spurious correlations (e.g., associating low-light conditions, specific seasons, or heavy precipitation with disease status).
+The system derives environmental context (Biological Season, Solar Status, Weather) from (latitude, longitude, date) using exact astronomical calculations and historical weather APIs. This process aims to dibias the model by categorizing observations into condition bins, we perform stratified sampling to ensure the model does not learn "shortcuts" or spurious correlations (e.g., associating low-light conditions, specific seasons, or heavy precipitation with disease status).
 
 ### Criticality of Data Quality
 Data quality ensures the reliability of the training pipeline:
@@ -25,21 +25,21 @@ Data quality ensures the reliability of the training pipeline:
 
 ## 2. Selection of Data Quality Criteria
 
-We have selected 8 criteria relevant to the project, focusing on both raw image quality and the metadata used for debiasing:
+We have selected 8 criteria relevant to the project, focusing on both raw image quality and the metadata used:
 
-### 1. Повнота (Completeness)
+### 1. Completeness
 - **Importance:** Crucial for training. An observation MUST have an `image_url` and an `is_diseased` label. Spatiotemporal fields are **important** for the debiasing strategy.
 - **Measurement:** % of null/missing values in critical and important columns.
 
-### 2. Коректність (Accuracy / Validity)
+### 2. Accuracy / Validity
 - **Importance:** Labels must be correct for the model to learn. When coordinates and dates are provided, they must be accurate to allow for reliable environmental binning.
 - **Measurement:** % of records passing schema validation (coordinates in range, valid URLs).
 
-### 3. Збалансованість (Balance)
+### 3. Balance
 - **Importance:** Crucial. We target a 1:1 ratio between Healthy and Diseased. **Stratified balance** across derived metadata (seasons, lighting) is also pursued to improve generalization.
 - **Measurement:** Ratio of `is_diseased=True` vs `False` records globally and within available environmental bins.
 
-### 4. Унікальність (Uniqueness)
+### 4. Uniqueness
 - **Importance:** Prevents data leakage between training and testing sets.
 - **Measurement:** Count of duplicate `external_id` values.
 
@@ -85,25 +85,25 @@ The dataset is evaluated using a weighted integral score ($Q \in [0, 1]$):
 
 ## 6. Initial Data Evaluation (Audit Results)
 
-Based on the primary iNaturalist extraction (~6,400 records):
+Based on the latest iNaturalist extraction post-migration (1351 records):
 
 | Metric | Value | Status |
 |---|---|---|
-| **Integral Score (Q)** | **0.9359** | **High Quality** |
+| **Integral Score (Q)** | **0.9571** | **High Quality** |
 | Critical Completeness | 1.000 | 0 missing critical fields |
 | Uniqueness | 1.000 | 0 duplicates |
-| Metadata Coverage | 0.9986 | Almost all records have GPS/Date |
-| Class Balance | **0.3614** | **CRITICAL IMBALANCE** (18% diseased) |
+| Metadata Coverage | 0.9993 | Almost all records have GPS/Date |
+| Class Balance | **0.5729** | **IMBALANCE** (~29% diseased) |
 
 ---
 
 ## 7. Risk Analysis and Mitigation
 
 ### Identified Risks:
-1. **Majority Class Bias:** The 82/18 imbalance will make the model "lazy," predicting "Healthy" by default to achieve high accuracy.
+1. **Majority Class Bias:** The ~71/29 imbalance will make the model "lazy," predicting "Healthy" by default to achieve high accuracy.
    - *Mitigation:* Apply **Oversampling** (augmentation) for diseased samples or **Weighted Cross-Entropy** loss.
 2. **Shortcut Bias (Environmental):** The model may associate "autumn colors" or "low-light GPS regions" with disease rather than the biological symptoms.
-   - *Mitigation:* Use the 99.8% metadata coverage to perform **stratified sampling** to balance environments.
+   - *Mitigation:* Use the 99.9% metadata coverage to perform **stratified sampling** to balance environments.
 3. **Label Noise:** Crowdsourced labels may be inaccurate.
    - *Mitigation:* Prefer `research grade` observations and use **Label Smoothing** during training.
 

@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any, cast, final, override
 from collections.abc import Iterator
@@ -20,12 +21,6 @@ class iNaturalistSource(SourceInterface):
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "PlantDiseaseETL/1.0"})
         self.cache_dir = ETL_ROOT / "data" / "raw" / "inaturalist"
-
-    def _get_cache_path(self, page: int, is_diseased: bool) -> Path:
-        subdir = "diseased" if is_diseased else "healthy"
-        path = self.cache_dir / subdir / f"page_{page}.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        return path
 
     def _parse_observation(
         self, raw: dict[str, Any], is_diseased: bool
@@ -72,30 +67,48 @@ class iNaturalistSource(SourceInterface):
         except ValueError:
             return None
 
-    def fetch_page(self, page: int, is_diseased: bool) -> list[RawObservation]:
-        cache_path = self._get_cache_path(page, is_diseased)
+    def fetch_page(
+        self, page: int, is_diseased: bool, project_id: int | None = None
+    ) -> list[RawObservation]:
+        # Include project_id in cache path if provided
+        subdir = "diseased" if is_diseased else "healthy"
+        filename = f"page_{page}.json"
+        if project_id:
+            filename = f"proj_{project_id}_page_{page}.json"
+        cache_path = self.cache_dir / subdir / filename
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
 
         if cache_path.exists() and not self.config.refetch:
             with open(cache_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 return [RawObservation.from_dict(d) for d in data]
 
-        params = {
+        params: dict[str, Any] = {
             "taxon_id": self.config.taxon_id,
             "per_page": self.config.per_page,
             "page": page,
             "photos": "true",
             "quality_grade": "research",
         }
-        if is_diseased:
-            params["term_id"] = self.config.term_id
-            params["term_value_id"] = self.config.term_value_id
 
-        logger.info(
-            f"Fetching {'diseased' if is_diseased else 'healthy'} page {page} from iNaturalist"
+        if is_diseased and project_id:
+            params["project_id"] = project_id
+        elif not is_diseased:
+            # For healthy, exclude observations from our disease projects
+            if self.config.project_ids:
+                params["not_in_project"] = ",".join(map(str, self.config.project_ids))
+
+        msg = f"Fetching {'diseased' if is_diseased else 'healthy'} page {page}"
+        if project_id:
+            msg += f" (project {project_id})"
+        logger.info(msg)
+
+        # Rate limiting
+        time.sleep(self.config.rate_limit_seconds)
+
+        resp = self.session.get(
+            f"{str(self.config.base_url)}/observations", params=params, timeout=30
         )
-        # HttpUrl from pydantic needs to be converted to string
-        resp = self.session.get(f"{str(self.config.base_url)}/observations", params=params)
         resp.raise_for_status()
         results = resp.json().get("results", [])
 
@@ -108,11 +121,17 @@ class iNaturalistSource(SourceInterface):
 
     @override
     def fetch(self) -> Iterator[RawObservation]:
-        # Balanced fetching: alternate between diseased and healthy pages
+        # Balanced fetching:
+        # For diseased: distribute max_pages across verified projects
+        num_projects = len(self.config.project_ids)
+        if num_projects > 0:
+            pages_per_project = max(1, self.config.max_pages // num_projects)
+            for project_id in self.config.project_ids:
+                for page in range(1, pages_per_project + 1):
+                    for obs in self.fetch_page(page, is_diseased=True, project_id=project_id):
+                        yield obs
+
+        # For healthy: fetch from general taxon but exclude disease projects
         for page in range(1, self.config.max_pages + 1):
-            # Fetch diseased
-            for obs in self.fetch_page(page, is_diseased=True):
-                yield obs
-            # Fetch healthy
             for obs in self.fetch_page(page, is_diseased=False):
                 yield obs
