@@ -3,8 +3,10 @@ import sys
 import tomllib
 
 from etl.config.types import AppConfig
-from etl.sources.interface import RawObservation
+from etl.sources.interface import RawObservation, SourceInterface
 from etl.sources.inaturalist import iNaturalistSource
+from etl.sources.local import LocalSource
+from etl.sources.local_metadata import LocalMetadataSource
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +24,18 @@ def load_config(path: str = "etl/config.toml") -> AppConfig:
         sys.exit(1)
 
 
-def get_enabled_sources(config: AppConfig) -> list[iNaturalistSource]:
-    enabled = []
+def get_enabled_sources(config: AppConfig) -> list[SourceInterface]:
+    enabled: list[SourceInterface] = []
     if config.sources.inaturalist.enabled:
         enabled.append(iNaturalistSource(config=config.sources.inaturalist))
+
+    for local_cfg in config.sources.local_sources:
+        if local_cfg.enabled:
+            enabled.append(LocalSource(config=local_cfg))
+
+    for meta_cfg in config.sources.metadata_sources:
+        if meta_cfg.enabled:
+            enabled.append(LocalMetadataSource(config=meta_cfg))
     return enabled
 
 

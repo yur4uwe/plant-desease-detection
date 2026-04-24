@@ -12,12 +12,35 @@ base_url = "https://api.inaturalist.org/v1"
 taxon_id = 47126        # Plantae
 project_ids = [49595, 124267, 227684, 47428, 255039]
 per_page = 200          # максимум дозволений API
-max_pages = 5
+max_pages = 10
 rate_limit_seconds = 5.0
 
-[sources.kaggle]
-enabled = false
-dataset = "plantvillage/plantvillage-dataset"
+[[sources.local_sources]]
+enabled = true
+name = "ccmt_ghana"
+root_path = "data/raw/ccmt"
+include_glob = "**/*.jpg"
+healthy_regex = "[A-Z][a-z]+_healthy"
+default_is_diseased = true
+provenance = "Field"
+
+[[sources.local_sources]]
+enabled = true
+name = "mcdd_india"
+root_path = "data/raw/mcdd/Multi-Crop Disease Dataset/Multicrop Disease Dataset/Multicrop Disease Dataset"
+include_glob = "**/images/*.jpg"
+healthy_regex = ".*_healthy"
+default_is_diseased = true
+provenance = "Field"
+
+[[sources.metadata_sources]]
+enabled = true
+name = "plantseg"
+metadata_path = "data/raw/plantseg/plantseg/Metadata.csv"
+images_root = "data/raw/plantseg/plantseg/images"
+column_mapping = { external_id = "Name", image_path = "Name", status = "Disease", label = "Disease" }
+default_is_diseased = true
+provenance = "Laboratory"
 
 [load]
 format = "sqlite"

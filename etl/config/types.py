@@ -20,14 +20,35 @@ class iNaturalistSourceConfig(BaseModel):
     rate_limit_seconds: float = Field(2.0, ge=0)
 
 
-class KaggleSourceConfig(BaseModel):
+class LocalSourceConfig(BaseModel):
     enabled: bool = False
-    dataset: str = ""
+    name: str = "local"
+    root_path: str = "etl/data/raw/local"
+    include_glob: str = "**/*.jpg"
+    status_pattern: str | None = None
+    diseased_values: list[str] = Field(default_factory=list)
+    healthy_values: list[str] = Field(default_factory=list)
+    healthy_regex: str | None = None
+    diseased_regex: str | None = None
+    default_is_diseased: bool = True
+    provenance: Literal["Field", "Laboratory", "Unknown"] = "Unknown"
+
+
+class LocalMetadataSourceConfig(BaseModel):
+    enabled: bool = False
+    name: str = "metadata_local"
+    metadata_path: str = ""
+    images_root: str = ""
+    column_mapping: dict[str, str] = Field(default_factory=dict)
+    healthy_regex: str | None = None
+    default_is_diseased: bool = True
+    provenance: Literal["Field", "Laboratory", "Unknown"] = "Unknown"
 
 
 class SourcesConfig(BaseModel):
     inaturalist: iNaturalistSourceConfig
-    kaggle: KaggleSourceConfig
+    local_sources: list[LocalSourceConfig] = Field(default_factory=list)
+    metadata_sources: list[LocalMetadataSourceConfig] = Field(default_factory=list)
 
 
 class LoadConfig(BaseModel):

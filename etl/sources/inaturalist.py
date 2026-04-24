@@ -57,6 +57,7 @@ class iNaturalistSource(SourceInterface):
             observation_date=obs_date,
             extracted_at=datetime.now(timezone.utc),
             raw_json=json.dumps(raw),
+            provenance="Field",
         )
 
     def _parse_date(self, date_str: str | None) -> datetime | None:

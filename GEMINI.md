@@ -178,5 +178,8 @@ Caching at the API response level allows the Extract stage to be re-run without 
 **Why SQLite instead of Parquet?**
 SQLite allows immediate inspection via any SQL client during development and demonstration, supports idempotent loading through `INSERT OR IGNORE`, and is sufficient for the data volumes in this project.
 
+**Data Storage Convention for Local Sources:**
+For organizational/local archives where no remote URL is available, the `image_url` field stores a **relative path** from the project root (e.g., `etl/data/raw/ccmt/...`). This ensures portability and allows the model training stage to resolve image locations consistently regardless of the host environment.
+
 ---
 

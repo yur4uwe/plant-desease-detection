@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 observation_schema = DataFrameSchema(
     {
-        "source": Column(str, Check.isin(["inaturalist", "kaggle"])),
+        "source": Column(str),
         "external_id": Column(str, Check.str_length(min_value=1)),
         "image_url": Column(str, nullable=True),
         "label": Column(str, nullable=True),
@@ -29,6 +29,7 @@ observation_schema = DataFrameSchema(
         "solar_status": Column(str, nullable=True),
         "temperature": Column(float, nullable=True),
         "precipitation": Column(float, nullable=True),
+        "provenance": Column(str, nullable=True),
     }
 )
 
@@ -139,8 +140,12 @@ def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # 2. Optimized Bulk Weather Fetching
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     weather_needed_mask = (
-        df["latitude"].notna() & df["longitude"].notna() & df["observation_date"].notna()
+        df["latitude"].notna() & 
+        df["longitude"].notna() & 
+        df["observation_date"].notna() &
+        (df["observation_date"].dt.strftime("%Y-%m-%d") < today_str)
     )
     weather_needed = df[weather_needed_mask].copy()
 
@@ -176,6 +181,8 @@ def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
         df.loc[weather_needed_mask, "temperature"] = [r[0] for r in results]
         df.loc[weather_needed_mask, "precipitation"] = [r[1] for r in results]
 
+    df["temperature"] = pd.to_numeric(df["temperature"], errors="coerce")
+    df["precipitation"] = pd.to_numeric(df["precipitation"], errors="coerce")
     return df
 
 

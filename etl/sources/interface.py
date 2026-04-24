@@ -17,6 +17,7 @@ class RawObservation:
     observation_date: datetime | None
     extracted_at: datetime | None
     raw_json: str
+    provenance: str = "Unknown"
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -51,6 +52,7 @@ class RawObservation:
                 else None
             ),
             raw_json=d["raw_json"],
+            provenance=d.get("provenance", "Unknown"),
         )
 
 

@@ -68,6 +68,8 @@ def get_weather_bulk(
             
             for attempt in range(max_retries):
                 try:
+                    # Small mandatory sleep to avoid burst limit
+                    time.sleep(0.5)
                     responses = openmeteo.weather_api(url, params=params)
                     
                     for sub_idx, response in enumerate(responses):
