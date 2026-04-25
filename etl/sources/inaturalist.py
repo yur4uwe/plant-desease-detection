@@ -18,7 +18,12 @@ class iNaturalistSource(SourceInterface):
     def __init__(self, config: iNaturalistSourceConfig) -> None:
         self.config = config
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "PlantDiseaseETL/1.0"})
+        # iNaturalist API guidelines recommend including contact info in User-Agent
+        self.session.headers.update(
+            {
+                "User-Agent": "PlantDiseaseETL/1.0 (University Research Project; contact: YURII.TSAR@lnu.edu.ua)"
+            }
+        )
         self.cache_dir = ETL_ROOT / "data" / "raw" / "inaturalist"
 
     def _parse_observation(
@@ -110,29 +115,44 @@ class iNaturalistSource(SourceInterface):
         for attempt in range(max_retries):
             try:
                 resp = self.session.get(
-                    f"{str(self.config.base_url)}/observations", params=params, timeout=30
+                    f"{str(self.config.base_url)}/observations",
+                    params=params,
+                    timeout=30,
                 )
                 resp.raise_for_status()
                 break
-            except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError) as e:
-                is_rate_limit = False
-                if isinstance(e, requests.exceptions.HTTPError):
-                    if e.response is not None and e.response.status_code == 429:
-                        is_rate_limit = True
-                else:
-                    # ConnectionError - handle as rate limit per user request
-                    is_rate_limit = True
+            except (
+                requests.exceptions.ConnectionError,
+                requests.exceptions.HTTPError,
+            ) as e:
+                if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
+                    if e.response.status_code == 403:
+                        logger.warning(
+                            f"Reached iNaturalist API result limit (403) on page {page}. "
+                            "iNaturalist limits search results to 10,000 records. Stopping this fetch."
+                        )
+                        return [] # Graceful exit for this request
+                    
+                    if e.response.status_code == 429:
+                        # Rate limit
+                        wait_time = (attempt + 1) * 30
+                        logger.warning(f"Rate limit hit on page {page}. Waiting {wait_time}s...")
+                        time.sleep(wait_time)
+                        continue
 
-                if is_rate_limit and attempt < max_retries - 1:
+                # Connection errors or other HTTP errors
+                if isinstance(e, requests.exceptions.ConnectionError) and attempt < max_retries - 1:
                     wait_time = (attempt + 1) * 30
                     logger.warning(
-                        f"Rate limit or connection issue on page {page} (attempt {attempt+1}/{max_retries}). "
+                        f"Connection issue on page {page} (attempt {attempt + 1}/{max_retries}). "
                         f"Waiting {wait_time}s..."
                     )
                     time.sleep(wait_time)
                     continue
-                
-                logger.error(f"Failed to fetch page {page} after {max_retries} attempts: {e}")
+
+                logger.error(
+                    f"Failed to fetch page {page} after {max_retries} attempts: {e}"
+                )
                 raise
 
         results = resp.json().get("results", [])
@@ -162,7 +182,9 @@ class iNaturalistSource(SourceInterface):
         for i, project_id in enumerate(self.config.project_ids):
             pages_to_fetch = pages_per_project + (1 if i < remainder else 0)
             for page in range(1, pages_to_fetch + 1):
-                yield from self.fetch_page(page, is_diseased=True, project_id=project_id)
+                yield from self.fetch_page(
+                    page, is_diseased=True, project_id=project_id
+                )
 
     @override
     def fetch(self) -> Iterator[RawObservation]:
