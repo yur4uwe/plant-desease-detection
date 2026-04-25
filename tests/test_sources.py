@@ -10,8 +10,6 @@ def test_inaturalist_parse_observation_with_hour():
         refetch=False,
         base_url=HttpUrl("https://api.inaturalist.org/v1"),
         taxon_id=47126,
-        term_id=9,
-        term_value_id=11,
         per_page=1,
         max_pages=1,
         rate_limit_seconds=1.0,

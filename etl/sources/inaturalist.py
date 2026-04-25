@@ -1,8 +1,7 @@
 import json
 import logging
 import time
-from pathlib import Path
-from typing import Any, cast, final, override
+from typing import Any, final, override
 from collections.abc import Iterator
 from datetime import datetime, timezone
 import requests
@@ -107,10 +106,35 @@ class iNaturalistSource(SourceInterface):
         # Rate limiting
         time.sleep(self.config.rate_limit_seconds)
 
-        resp = self.session.get(
-            f"{str(self.config.base_url)}/observations", params=params, timeout=30
-        )
-        resp.raise_for_status()
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                resp = self.session.get(
+                    f"{str(self.config.base_url)}/observations", params=params, timeout=30
+                )
+                resp.raise_for_status()
+                break
+            except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError) as e:
+                is_rate_limit = False
+                if isinstance(e, requests.exceptions.HTTPError):
+                    if e.response is not None and e.response.status_code == 429:
+                        is_rate_limit = True
+                else:
+                    # ConnectionError - handle as rate limit per user request
+                    is_rate_limit = True
+
+                if is_rate_limit and attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 30
+                    logger.warning(
+                        f"Rate limit or connection issue on page {page} (attempt {attempt+1}/{max_retries}). "
+                        f"Waiting {wait_time}s..."
+                    )
+                    time.sleep(wait_time)
+                    continue
+                
+                logger.error(f"Failed to fetch page {page} after {max_retries} attempts: {e}")
+                raise
+
         results = resp.json().get("results", [])
 
         observations = [self._parse_observation(r, is_diseased) for r in results]
@@ -120,19 +144,29 @@ class iNaturalistSource(SourceInterface):
 
         return observations
 
+    def _fetch_healthy(self) -> Iterator[RawObservation]:
+        for page in range(1, self.config.max_pages + 1):
+            yield from self.fetch_page(page, is_diseased=False)
+
+    def _fetch_diseased(self) -> Iterator[RawObservation]:
+        num_projects = len(self.config.project_ids)
+        if num_projects == 0:
+            logger.warning(
+                "Diseased fetching requested but no project_ids defined in config."
+            )
+            return
+
+        pages_per_project = self.config.max_pages // num_projects
+        remainder = self.config.max_pages % num_projects
+
+        for i, project_id in enumerate(self.config.project_ids):
+            pages_to_fetch = pages_per_project + (1 if i < remainder else 0)
+            for page in range(1, pages_to_fetch + 1):
+                yield from self.fetch_page(page, is_diseased=True, project_id=project_id)
+
     @override
     def fetch(self) -> Iterator[RawObservation]:
-        # Balanced fetching:
-        # For diseased: distribute max_pages across verified projects
-        num_projects = len(self.config.project_ids)
-        if num_projects > 0:
-            pages_per_project = max(1, self.config.max_pages // num_projects)
-            for project_id in self.config.project_ids:
-                for page in range(1, pages_per_project + 1):
-                    for obs in self.fetch_page(page, is_diseased=True, project_id=project_id):
-                        yield obs
-
-        # For healthy: fetch from general taxon but exclude disease projects
-        for page in range(1, self.config.max_pages + 1):
-            for obs in self.fetch_page(page, is_diseased=False):
-                yield obs
+        if self.config.fetch_mode in ("all", "diseased"):
+            yield from self._fetch_diseased()
+        if self.config.fetch_mode in ("all", "healthy"):
+            yield from self._fetch_healthy()

@@ -120,6 +120,12 @@ def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
     """
     logger.info("Enriching environmental metadata (Season, Solar Status, Weather)")
 
+    # Ensure columns exist even if no weather is fetched
+    if "temperature" not in df.columns:
+        df["temperature"] = None
+    if "precipitation" not in df.columns:
+        df["precipitation"] = None
+
     # 1. Vectorized Season & Solar Status
     # Using apply for complex logic, but it's still better than row-by-row manual list building
     df["season"] = df.apply(
@@ -180,6 +186,9 @@ def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
         results = weather_needed.apply(_map_weather, axis=1)
         df.loc[weather_needed_mask, "temperature"] = [r[0] for r in results]
         df.loc[weather_needed_mask, "precipitation"] = [r[1] for r in results]
+
+        enriched_count = df["temperature"].notna().sum()
+        logger.info(f"Weather enrichment complete: {enriched_count} rows updated with environmental context")
 
     df["temperature"] = pd.to_numeric(df["temperature"], errors="coerce")
     df["precipitation"] = pd.to_numeric(df["precipitation"], errors="coerce")

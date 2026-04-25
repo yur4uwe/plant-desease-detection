@@ -38,26 +38,29 @@ def get_weather_bulk(
 
     # Process in chunks of 50 (Open-Meteo allows up to 50 locations per request)
     chunk_size = 50
+    total_chunks = (len(locations) + chunk_size - 1) // chunk_size
+
+    logger.info(
+        f"Starting bulk weather fetch for {len(locations)} unique pairs in {total_chunks} chunks"
+    )
+
     for i in range(0, len(locations), chunk_size):
+        chunk_idx = (i // chunk_size) + 1
         chunk = locations[i : i + chunk_size]
-        lats = [c[0] for c in chunk]
-        lons = [c[1] for c in chunk]
-        
-        # Open-Meteo bulk requires same start/end date or a single date if consistent
-        # For simplicity in this project, we'll group by date if dates vary, 
-        # but here we'll assume we can pass the lists.
-        # Actually, Open-Meteo historical bulk works best when dates are also passed as lists
-        # but the archive API expects a single start/end date per request.
-        
+
         # REVISED STRATEGY: Group chunk by date to minimize API calls
         date_map: dict[str, list[int]] = {}
         for idx, (_, _, date_str) in enumerate(chunk):
             date_map.setdefault(date_str, []).append(idx)
-            
+
+        logger.info(
+            f"Processing chunk {chunk_idx}/{total_chunks} ({len(date_map)} unique dates)"
+        )
+
         for date_str, chunk_indices in date_map.items():
             sub_lats = [chunk[idx][0] for idx in chunk_indices]
             sub_lons = [chunk[idx][1] for idx in chunk_indices]
-            
+
             params = {
                 "latitude": sub_lats,
                 "longitude": sub_lons,
@@ -65,13 +68,13 @@ def get_weather_bulk(
                 "end_date": date_str,
                 "daily": ["temperature_2m_mean", "precipitation_sum"],
             }
-            
+
             for attempt in range(max_retries):
                 try:
                     # Small mandatory sleep to avoid burst limit
                     time.sleep(0.5)
                     responses = openmeteo.weather_api(url, params=params)
-                    
+
                     for sub_idx, response in enumerate(responses):
                         daily = response.Daily()
                         if daily:
@@ -82,19 +85,27 @@ def get_weather_bulk(
                                 precip = float(var1.ValuesAsNumpy()[0])
                                 temp = temp if not pd.isna(temp) else None
                                 precip = precip if not pd.isna(precip) else None
-                                
+
                                 # Map back to original results list
                                 original_idx = i + chunk_indices[sub_idx]
                                 results[original_idx] = (temp, precip)
-                    break # Success
+                    break  # Success
                 except Exception as e:
                     err_msg = str(e).lower()
                     if "limit exceeded" in err_msg:
-                        wait_time = (attempt + 1) * 10
-                        logger.warning(f"Rate limit hit in bulk. Waiting {wait_time}s...")
+                        wait_time = (attempt + 1) * 20  # Increased wait
+                        logger.warning(
+                            f"Rate limit hit for {date_str}. Waiting {wait_time}s (attempt {attempt + 1}/{max_retries})"
+                        )
                         time.sleep(wait_time)
                         continue
-                    logger.warning(f"Bulk weather fetch failed for date {date_str}: {e}")
+                    logger.warning(
+                        f"Bulk weather fetch failed for date {date_str}: {e}"
+                    )
                     break
 
+    fetched_count = sum(1 for r in results if r[0] is not None)
+    logger.info(
+        f"Bulk fetch complete: successfully retrieved {fetched_count}/{len(locations)} weather records"
+    )
     return results

@@ -6,8 +6,8 @@ processed_data_path = "data/processed"
 
 [sources.inaturalist]
 enabled = true
-refetch = false
-
+refetch = true
+fetch_mode = "all"
 base_url = "https://api.inaturalist.org/v1"
 taxon_id = 47126        # Plantae
 project_ids = [49595, 124267, 227684, 47428, 255039]
@@ -16,7 +16,7 @@ max_pages = 10
 rate_limit_seconds = 5.0
 
 [[sources.local_sources]]
-enabled = true
+enabled = false
 name = "ccmt_ghana"
 root_path = "data/raw/ccmt"
 include_glob = "**/*.jpg"
@@ -25,7 +25,7 @@ default_is_diseased = true
 provenance = "Field"
 
 [[sources.local_sources]]
-enabled = true
+enabled = false
 name = "mcdd_india"
 root_path = "data/raw/mcdd/Multi-Crop Disease Dataset/Multicrop Disease Dataset/Multicrop Disease Dataset"
 include_glob = "**/images/*.jpg"
@@ -34,7 +34,7 @@ default_is_diseased = true
 provenance = "Field"
 
 [[sources.metadata_sources]]
-enabled = true
+enabled = false
 name = "plantseg"
 metadata_path = "data/raw/plantseg/plantseg/Metadata.csv"
 images_root = "data/raw/plantseg/plantseg/images"

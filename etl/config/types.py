@@ -12,6 +12,7 @@ class GeneralConfig(BaseModel):
 class iNaturalistSourceConfig(BaseModel):
     enabled: bool = False
     refetch: bool = False
+    fetch_mode: Literal["diseased", "healthy", "all"] = "all"
     base_url: HttpUrl = Field(..., description="API base URL")
     taxon_id: int = 47126  # Plantae
     project_ids: list[int] = Field(default_factory=list)

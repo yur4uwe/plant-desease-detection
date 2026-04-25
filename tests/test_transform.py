@@ -41,17 +41,16 @@ def test_get_solar_status():
 
 def test_enrich_environmental_metadata(mocker):
     # Mock weather API to avoid network calls
-    mocker.patch("etl.transform.get_weather_for_location", return_value=(20.5, 0.0))
+    mocker.patch("etl.transform.get_weather_bulk", return_value=[(20.5, 0.0)])
 
     df = pd.DataFrame(
         {
             "latitude": [45.0, -45.0],
             "longitude": [0.0, 0.0],
             "observation_date": [
-                datetime(2026, 6, 21, 12, 0, 0),
-                datetime(2026, 6, 21, 12, 0, 0),
-            ],
-        }
+                datetime(2023, 6, 21, 12, 0, 0),
+                datetime(2023, 6, 21, 12, 0, 0),
+            ],        }
     )
 
     enriched_df = enrich_environmental_metadata(df)
