@@ -7,6 +7,7 @@ from etl.sources.interface import RawObservation, SourceInterface
 from etl.sources.inaturalist import iNaturalistSource
 from etl.sources.local import LocalSource
 from etl.sources.local_metadata import LocalMetadataSource
+from etl.sources.yolo import YoloSource
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,11 @@ def get_enabled_sources(config: AppConfig) -> list[SourceInterface]:
     for meta_cfg in config.sources.metadata_sources:
         if meta_cfg.enabled:
             enabled.append(LocalMetadataSource(config=meta_cfg))
+
+    for yolo_cfg in config.sources.yolo_sources:
+        if yolo_cfg.enabled:
+            enabled.append(YoloSource(config=yolo_cfg))
+
     return enabled
 
 

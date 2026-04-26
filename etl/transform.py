@@ -1,5 +1,5 @@
 import logging
-import math
+from typing import cast
 import pandas as pd
 import pandera.pandas as pa
 from pandera.pandas import DataFrameSchema, Column, Check
@@ -46,12 +46,18 @@ def drop_duplicates(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
-    df["observation_date"] = pd.to_datetime(
-        df["observation_date"], errors="coerce"
-    ).dt.tz_localize(None)
-    df["extracted_at"] = pd.to_datetime(
-        df["extracted_at"], errors="coerce"
-    ).dt.tz_localize(None)
+    epoch = pd.Timestamp("1970-01-01")
+
+    df["observation_date"] = (
+        pd.to_datetime(df["observation_date"], errors="coerce")
+        .dt.tz_localize(None)
+        .fillna(epoch)
+    )
+    df["extracted_at"] = (
+        pd.to_datetime(df["extracted_at"], errors="coerce")
+        .dt.tz_localize(None)
+        .fillna(epoch)
+    )
     return df
 
 
@@ -129,31 +135,35 @@ def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
     # 1. Vectorized Season & Solar Status
     # Using apply for complex logic, but it's still better than row-by-row manual list building
     df["season"] = df.apply(
-        lambda row: _get_season(row["latitude"], row["observation_date"].month)
-        if pd.notna(row["latitude"]) and pd.notna(row["observation_date"])
-        else None,
+        lambda row: (
+            _get_season(row["latitude"], row["observation_date"].month)
+            if pd.notna(row["latitude"]) and pd.notna(row["observation_date"])
+            else None
+        ),
         axis=1,
     )
     df["solar_status"] = df.apply(
-        lambda row: _get_solar_status(
-            row["latitude"], row["longitude"], row["observation_date"]
-        )
-        if pd.notna(row["latitude"])
-        and pd.notna(row["longitude"])
-        and pd.notna(row["observation_date"])
-        else None,
+        lambda row: (
+            _get_solar_status(
+                row["latitude"], row["longitude"], row["observation_date"]
+            )
+            if pd.notna(row["latitude"])
+            and pd.notna(row["longitude"])
+            and pd.notna(row["observation_date"])
+            else None
+        ),
         axis=1,
     )
 
     # 2. Optimized Bulk Weather Fetching
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     weather_needed_mask = (
-        df["latitude"].notna() & 
-        df["longitude"].notna() & 
-        df["observation_date"].notna() &
-        (df["observation_date"].dt.strftime("%Y-%m-%d") < today_str)
+        df["latitude"].notna()
+        & df["longitude"].notna()
+        & df["observation_date"].notna()
+        & (df["observation_date"].dt.strftime("%Y-%m-%d") < today_str)
     )
-    weather_needed = df[weather_needed_mask].copy()
+    weather_needed = cast(pd.DataFrame, df[weather_needed_mask].copy())
 
     if not weather_needed.empty:
         weather_needed["date_str"] = weather_needed["observation_date"].dt.strftime(
@@ -161,13 +171,17 @@ def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
         )
 
         # Identify unique location-date pairs to minimize API calls
-        unique_locs_df = weather_needed[["latitude", "longitude", "date_str"]].drop_duplicates()
+        unique_locs_df = weather_needed[
+            ["latitude", "longitude", "date_str"]
+        ].drop_duplicates()
         unique_loc_list = [tuple(x) for x in unique_locs_df.values]
 
-        logger.info(f"Fetching weather for {len(unique_loc_list)} unique location-date pairs")
-        
+        logger.info(
+            f"Fetching weather for {len(unique_loc_list)} unique location-date pairs"
+        )
+
         # Call the bulk fetcher
-        weather_results = get_weather_bulk(unique_loc_list) # type: ignore
+        weather_results = get_weather_bulk(unique_loc_list)  # type: ignore
 
         # Create a mapping for quick lookup
         flat_map = {
@@ -188,7 +202,9 @@ def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
         df.loc[weather_needed_mask, "precipitation"] = [r[1] for r in results]
 
         enriched_count = df["temperature"].notna().sum()
-        logger.info(f"Weather enrichment complete: {enriched_count} rows updated with environmental context")
+        logger.info(
+            f"Weather enrichment complete: {enriched_count} rows updated with environmental context"
+        )
 
     df["temperature"] = pd.to_numeric(df["temperature"], errors="coerce")
     df["precipitation"] = pd.to_numeric(df["precipitation"], errors="coerce")
@@ -199,6 +215,13 @@ def cast_types(df: pd.DataFrame) -> pd.DataFrame:
     df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
     df["is_diseased"] = df["is_diseased"].astype("boolean")
+
+    # Explicitly cast categorical columns to string type
+    # This prevents Pandera SchemaErrors when columns contain all None/NaN
+    for col in ["source", "external_id", "image_url", "label", "season", "solar_status", "provenance"]:
+        if col in df.columns:
+            df[col] = df[col].astype("string")
+
     return df
 
 

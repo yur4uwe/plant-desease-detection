@@ -31,6 +31,7 @@ class LocalSourceConfig(BaseModel):
     healthy_values: list[str] = Field(default_factory=list)
     healthy_regex: str | None = None
     diseased_regex: str | None = None
+    label_regex: str | None = None
     default_is_diseased: bool = True
     provenance: Literal["Field", "Laboratory", "Unknown"] = "Unknown"
 
@@ -46,10 +47,18 @@ class LocalMetadataSourceConfig(BaseModel):
     provenance: Literal["Field", "Laboratory", "Unknown"] = "Unknown"
 
 
+class YoloSourceConfig(BaseModel):
+    enabled: bool = False
+    name: str = "yolo"
+    root_path: str = ""
+    provenance: Literal["Field", "Laboratory", "Unknown"] = "Field"
+
+
 class SourcesConfig(BaseModel):
     inaturalist: iNaturalistSourceConfig
     local_sources: list[LocalSourceConfig] = Field(default_factory=list)
     metadata_sources: list[LocalMetadataSourceConfig] = Field(default_factory=list)
+    yolo_sources: list[YoloSourceConfig] = Field(default_factory=list)
 
 
 class LoadConfig(BaseModel):

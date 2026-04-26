@@ -27,6 +27,7 @@ class LocalSource(SourceInterface):
         self.diseased_re = (
             re.compile(config.diseased_regex) if config.diseased_regex else None
         )
+        self.label_re = re.compile(config.label_regex) if config.label_regex else None
 
     def _determine_is_diseased(self, path: Path) -> bool:
         path_str = str(path)
@@ -37,6 +38,21 @@ class LocalSource(SourceInterface):
             return True
 
         return self.config.default_is_diseased
+
+    def _determine_label(self, path: Path) -> str:
+        path_str = path.name
+
+        if self.label_re:
+            match = self.label_re.search(path_str)
+            if match:
+                # If the regex has a named group 'label', use it, otherwise use group(1)
+                try:
+                    return match.group("label")
+                except IndexError:
+                    return match.group(1) if match.groups() else match.group(0)
+
+        # Fallback: Use the immediate parent folder name
+        return path.parent.name
 
     @override
     def fetch(self) -> Iterator[RawObservation]:
@@ -49,6 +65,7 @@ class LocalSource(SourceInterface):
         count = 0
         for img_path in self.root_path.glob(self.config.include_glob):
             is_diseased = self._determine_is_diseased(img_path)
+            label = self._determine_label(img_path)
 
             # Use relative path for image_url to ensure portability across environments
             rel_path = str(img_path.relative_to(ETL_ROOT.parent))
@@ -58,18 +75,20 @@ class LocalSource(SourceInterface):
                 "file_path": rel_path,
                 "provenance": self.config.provenance,
                 "status_extracted": is_diseased,
+                "label_extracted": label,
             }
 
             yield RawObservation(
                 source=f"local_{self.config.name}",
                 external_id=img_path.name,
                 image_url=rel_path,
-                label=None,
+                label=label,
                 is_diseased=is_diseased,
                 latitude=None,
                 longitude=None,
                 observation_date=None,
                 extracted_at=datetime.now(timezone.utc),
+                provenance=self.config.provenance,
                 raw_json=json.dumps(raw_data),
             )
             count += 1

@@ -10,6 +10,11 @@
     - **Problem:** Datasets like PlantVillage are "laboratory-clean" (uniform backgrounds, perfect lighting), while iNaturalist is "field-messy."
     - **Solution:** Add a `condition_type` or `environment` metadata field. Categories: `Field`, `Laboratory`, `Unknown`.
     - **Impact:** Use this field during model training for domain adaptation or to prevent the model from learning "clean background = diseased" shortcuts.
+- **Data Enrichment & Recovery (`scripts/backfill.py`):**
+    - **Objective:** Create a dedicated utility to populate missing metadata columns (`temperature`, `precipitation`, `observation_date`, `latitude`, `longitude`) for existing records in `observations.db`.
+    - **Strategy 1 (Weather):** Re-trigger Open-Meteo bulk calls for rows where coordinates and date exist but weather data is NULL.
+    - **Strategy 2 (EXIF):** For local source images (`source='local'`), extract embedded EXIF metadata (GPS, DateTimeOriginal) to fill missing spatial/temporal fields.
+    - **Strategy 3 (Imputation):** Use seasonal/regional averages for records where external APIs fail to provide data.
 
 ## Candidate Sources
 - **Kaggle (PlantVillage):** High volume, high quality, but strictly `Laboratory`. Needs mapping: `*___healthy` -> 0, others -> 1.

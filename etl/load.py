@@ -97,19 +97,31 @@ def load_observations(conn: sqlite3.Connection, df: pd.DataFrame) -> int:
         "provenance",
     ]
 
-    # Use INSERT OR IGNORE via temporary table for bulk performance
+    # Sync data using a Delete-then-Insert pattern for compatibility with older SQLite versions
     df[cols_to_load].to_sql("temp_observations", conn, if_exists="replace", index=False)
 
     cursor = conn.cursor()
+    
+    # 1. Remove existing records that are being updated
+    _ = cursor.execute("""
+        DELETE FROM observations 
+        WHERE (source, external_id) IN (
+            SELECT source, external_id FROM temp_observations
+        )
+    """)
+    deleted = cursor.rowcount
+    
+    # 2. Insert the new/updated records
     _ = cursor.execute(f"""
-        INSERT OR IGNORE INTO observations ({", ".join(cols_to_load)})
+        INSERT INTO observations ({", ".join(cols_to_load)})
         SELECT {", ".join(cols_to_load)} FROM temp_observations
     """)
     inserted = cursor.rowcount
+    
     _ = cursor.execute("DROP TABLE temp_observations")
     conn.commit()
 
-    logger.info(f"Loaded {inserted} new observations")
+    logger.info(f"Database sync complete: {inserted} rows updated/inserted ({deleted} replaced)")
     return inserted
 
 
