@@ -25,13 +25,13 @@ class YoloSource(SourceInterface):
         """Simple regex-based parser for data.yaml names list."""
         if not yaml_path.exists():
             return []
-        
+
         content = yaml_path.read_text()
         # Find 'names: [...]' block
         match = re.search(r"names:\s*\[(.*?)\]", content, re.DOTALL)
         if not match:
             return []
-        
+
         # Extract individual names (handles single or double quotes)
         names_str = match.group(1)
         names = re.findall(r"['\"](.*?)['\"]", names_str)
@@ -50,19 +50,19 @@ class YoloSource(SourceInterface):
             return
 
         logger.info(f"Crawling YOLO source: {self.config.name} at {self.root_path}")
-        
+
         count = 0
         # Iterate through common YOLO splits
         for split in ["train", "valid", "test"]:
             img_dir = self.root_path / split / "images"
             label_dir = self.root_path / split / "labels"
-            
+
             if not img_dir.exists():
                 continue
-                
+
             for img_path in img_dir.glob("*.jpg"):
                 label_path = label_dir / (img_path.stem + ".txt")
-                
+
                 label_name = "Unknown"
                 if label_path.exists():
                     try:
@@ -86,7 +86,7 @@ class YoloSource(SourceInterface):
                     "file_path": rel_path,
                     "provenance": self.config.provenance,
                     "yolo_split": split,
-                    "class_name": label_name
+                    "class_name": label_name,
                 }
 
                 yield RawObservation(
@@ -104,4 +104,6 @@ class YoloSource(SourceInterface):
                 )
                 count += 1
 
-        logger.info(f"YOLO source '{self.config.name}' completed: {count} observations extracted")
+        logger.info(
+            f"YOLO source '{self.config.name}' completed: {count} observations extracted"
+        )

@@ -46,17 +46,13 @@ def drop_duplicates(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
-    epoch = pd.Timestamp("1970-01-01")
-
     df["observation_date"] = (
         pd.to_datetime(df["observation_date"], errors="coerce")
         .dt.tz_localize(None)
-        .fillna(epoch)
     )
     df["extracted_at"] = (
         pd.to_datetime(df["extracted_at"], errors="coerce")
         .dt.tz_localize(None)
-        .fillna(epoch)
     )
     return df
 
