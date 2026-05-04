@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 class iNaturalistSource(SourceInterface):
     def __init__(self, config: iNaturalistSourceConfig) -> None:
         self.config = config
+        self.name = config.name
         self.session = requests.Session()
         # iNaturalist API guidelines recommend including contact info in User-Agent
         self.session.headers.update(
@@ -125,23 +126,31 @@ class iNaturalistSource(SourceInterface):
                 requests.exceptions.ConnectionError,
                 requests.exceptions.HTTPError,
             ) as e:
-                if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
+                if (
+                    isinstance(e, requests.exceptions.HTTPError)
+                    and e.response is not None
+                ):
                     if e.response.status_code == 403:
                         logger.warning(
                             f"Reached iNaturalist API result limit (403) on page {page}. "
                             "iNaturalist limits search results to 10,000 records. Stopping this fetch."
                         )
-                        return [] # Graceful exit for this request
-                    
+                        return []  # Graceful exit for this request
+
                     if e.response.status_code == 429:
                         # Rate limit
                         wait_time = (attempt + 1) * 30
-                        logger.warning(f"Rate limit hit on page {page}. Waiting {wait_time}s...")
+                        logger.warning(
+                            f"Rate limit hit on page {page}. Waiting {wait_time}s..."
+                        )
                         time.sleep(wait_time)
                         continue
 
                 # Connection errors or other HTTP errors
-                if isinstance(e, requests.exceptions.ConnectionError) and attempt < max_retries - 1:
+                if (
+                    isinstance(e, requests.exceptions.ConnectionError)
+                    and attempt < max_retries - 1
+                ):
                     wait_time = (attempt + 1) * 30
                     logger.warning(
                         f"Connection issue on page {page} (attempt {attempt + 1}/{max_retries}). "

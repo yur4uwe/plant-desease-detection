@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 class LocalSource(SourceInterface):
     def __init__(self, config: LocalSourceConfig) -> None:
         self.config = config
+        self.name = config.name
         self.root_path = Path(config.root_path)
         if not self.root_path.is_absolute():
             self.root_path = ETL_ROOT / self.root_path

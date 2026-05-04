@@ -1,3 +1,5 @@
+# THIS SCRIPT IS OUTDATED AND IS NO LONGER USED
+
 import logging
 import sqlite3
 import pandas as pd
@@ -7,9 +9,8 @@ from tqdm import tqdm
 
 from etl.config.helpers import ETL_ROOT
 from etl.transform import _get_season, _get_solar_status
-from etl.sources.weather import get_weather_for_location, RateLimitError
+from etl.sources.weather import RateLimitError
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 DB_PATH = ETL_ROOT / "data" / "processed" / "observations.db"
@@ -86,7 +87,7 @@ def migrate():
 
             try:
                 # API Call
-                temp, precip = get_weather_for_location(lat, lon, date_str)
+                temp, precip = get_weather_for_location(lat, lon, date_str)  # pyright: ignore[reportUndefinedVariable]  # noqa: F821
                 # Polite delay between requests
                 time.sleep(0.1)
             except RateLimitError as e:
@@ -110,4 +111,3 @@ def migrate():
 
 if __name__ == "__main__":
     migrate()
-

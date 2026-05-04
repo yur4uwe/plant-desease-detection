@@ -57,6 +57,8 @@ class RawObservation:
 
 
 class SourceInterface(ABC):
+    name: str
+
     @abstractmethod
     def fetch(self) -> Iterator[RawObservation]:
         """Fetches raw observations from the source, handling its own caching and balance."""

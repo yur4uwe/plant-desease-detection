@@ -10,6 +10,7 @@ class GeneralConfig(BaseModel):
 
 
 class iNaturalistSourceConfig(BaseModel):
+    name: str = "inaturalist"
     enabled: bool = False
     refetch: bool = False
     fetch_mode: Literal["diseased", "healthy", "all"] = "all"

@@ -1,29 +1,12 @@
 import logging
 import sys
-from pathlib import Path
 
 from etl.config.types import AppConfig
 from etl.extract import load_config, run_extract
 from etl.transform import run_transform
 from etl.load import run_load
 from etl.quality import calculate_quality_score
-
-# ─── Logging ───────────────────────────────────────────────────
-
-
-def setup_logging(log_level: str) -> None:
-    log_dir = Path("logs")
-    log_dir.mkdir(exist_ok=True)
-
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper(), logging.INFO),
-        format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler(log_dir / "etl.log", encoding="utf-8"),
-        ],
-    )
-
+from logging.setup import setup_logging
 
 logger = logging.getLogger(__name__)
 
