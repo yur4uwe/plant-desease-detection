@@ -86,6 +86,10 @@ proj-data-processing/
 │   ├── transform.py
 │   ├── load.py
 │   └── pipeline.py
+├── steps/ # Project execution steps
+│   ├── proj-step-1-ukr.pdf
+│   ├── ...
+│   └── proj-step-16-ukr.pdf
 └── pyproject.toml
 ```
 
