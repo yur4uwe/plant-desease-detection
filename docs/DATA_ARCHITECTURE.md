@@ -1,3 +1,4 @@
+<!-- Step: 04 -->
 # AgriTech Plant Disease Detection — Data Architecture
 
 ## 1. Role of Data Architecture in the Project

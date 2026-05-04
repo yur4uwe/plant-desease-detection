@@ -1,4 +1,6 @@
-# AgriTech Plant Disease Detection — Business Evaluation & Quality Assessment
+<!-- Step: 07 -->
+# AgriTech Plant Disease Detection — Business Evaluation
+ & Quality Assessment
 
 ## 1. Project Business Context
 

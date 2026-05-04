@@ -1,3 +1,4 @@
+<!-- Step: 10 -->
 # Data Cleaning and Re-exploration Report (Step 10)
 
 ## 1. Limits and Thresholds for Numerical Attributes
@@ -19,7 +20,7 @@ The `scripts/cleaning_script.py` employs the following steps to ensure data qual
 
 ## 3. Cleaning Methods to Attributes Mapping
 
-| Method ↓ \ Attribute → | latitude | longitude | temperature | precipitation | season | solar_status | source | external_id |
+| Method \ Attribute | latitude | longitude | temperature | precipitation | season | solar_status | source | external_id |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Drop Duplicates** | | | | | | | Yes | Yes |
 | **Imputation (Median)** | Yes | Yes | Yes | Yes | | | | |

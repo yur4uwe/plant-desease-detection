@@ -1,3 +1,4 @@
+<!-- Step: 08 -->
 # Dataset Construction Report — Plant Disease Detection (Binary)
 
 ## 1. Object of Observation

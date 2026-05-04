@@ -1,3 +1,4 @@
+<!-- Step: 02 -->
 # AgriTech Plant Disease Detection — Requirements Analysis
 
 ## 1. Business Problem Formalization

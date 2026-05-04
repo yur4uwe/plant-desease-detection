@@ -86,11 +86,47 @@ proj-data-processing/
 │   ├── transform.py
 │   ├── load.py
 │   └── pipeline.py
-├── steps/ # Project execution steps
-│   ├── proj-step-1-ukr.pdf
-│   ├── ...
-│   └── proj-step-16-ukr.pdf
+├── steps/                         # Project execution steps
+│   ├── mds/                       # Markdown versions of project steps
+│   │   ├── proj-step-01.md
+│   │   ├── ...
+│   │   └── proj-step-16.md
+│   ├── pdfs/                      # Original PDF instructions
+│   └── pdftomd.sh                 # PDF to Markdown conversion script
 └── pyproject.toml
+
+---
+
+## Documentation & Step Mapping
+
+Each documentation file in `docs/` corresponds to a specific project step defined in `steps/mds/`. You can identify the correspondence by checking the `Step: XX` comment at the top of each markdown file.
+
+To quickly find which document corresponds to a specific step, use `grep`:
+
+```bash
+# To see the file path and the comment
+grep -r "Step: 03" docs/
+
+# To get only the file path
+grep -l "Step: 03" docs/*
+```
+
+### Step-to-Document Index
+
+| Step | Documentation | Description |
+|---|---|---|
+| Step 01 | `docs/PROJECT_PLANNING.md` | Business context, SMART goals, risk assessment. |
+| Step 02 | `docs/PROJECT_REQUIREMENT_ANALYSIS.md` | Formal requirements, Use Cases, MoSCoW. |
+| Step 03 | `docs/PIPELINE.md` | ETL implementation, iNaturalist source, transformations. |
+| Step 04 | `docs/DATA_ARCHITECTURE.md` | ER diagrams, system orchestration, data flow. |
+| Step 05 | `docs/DATA_QUALITY.md` | Quality metrics, audit results, validation rules. |
+| Step 06 | `docs/MODEL_EVALUATION_METRICS.md` | ML target metrics, split strategy, evaluation logic. |
+| Step 07 | `docs/BUSINESS_EVALUATION.md` | Integral quality score, business KPIs, feasibility. |
+| Step 08 | `docs/DATASET_CONSTRUCTION_REPORT.md` | Object of observation, feature engineering, labels. |
+| Step 09 | `docs/EDA.md` | Visualizations, distributions, correlations. |
+| Step 10 | `docs/CLEANING_REPORT.md` | Outlier handling, re-exploration, data hygiene. |
+
+---
 ```
 
 ---
