@@ -1,3 +1,4 @@
+from http import HTTPStatus
 import json
 import logging
 import time
@@ -6,7 +7,7 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 import requests
 
-from etl.config.helpers import ETL_ROOT
+from etl.config.helpers import PROJECT_ROOT
 from etl.config.types import iNaturalistSourceConfig
 from etl.sources.interface import SourceInterface, RawObservation
 
@@ -25,7 +26,7 @@ class iNaturalistSource(SourceInterface):
                 "User-Agent": "PlantDiseaseETL/1.0 (University Research Project; contact: YURII.TSAR@lnu.edu.ua)"
             }
         )
-        self.cache_dir = ETL_ROOT / "data" / "raw" / "inaturalist"
+        self.cache_dir = PROJECT_ROOT / "data" / "raw" / "inaturalist"
 
     def _parse_observation(
         self, raw: dict[str, Any], is_diseased: bool
@@ -113,56 +114,46 @@ class iNaturalistSource(SourceInterface):
         time.sleep(self.config.rate_limit_seconds)
 
         max_retries = 3
-        for attempt in range(max_retries):
+        attempt = 0
+        while 1:
+            if attempt == max_retries:
+                logger.error(
+                    f"Failed to fetch page {page} after {max_retries} attempts"
+                )
+                raise
+
             try:
                 resp = self.session.get(
                     f"{str(self.config.base_url)}/observations",
                     params=params,
                     timeout=30,
                 )
-                resp.raise_for_status()
-                break
-            except (
-                requests.exceptions.ConnectionError,
-                requests.exceptions.HTTPError,
-            ) as e:
-                if (
-                    isinstance(e, requests.exceptions.HTTPError)
-                    and e.response is not None
-                ):
-                    if e.response.status_code == 403:
-                        logger.warning(
-                            f"Reached iNaturalist API result limit (403) on page {page}. "
-                            "iNaturalist limits search results to 10,000 records. Stopping this fetch."
-                        )
-                        return []  # Graceful exit for this request
+            except requests.exceptions.ConnectionError:
+                wait_time = (attempt + 1) * 30
+                logger.warning(
+                    f"Connection issue on page {page} (attempt {attempt + 1}/{max_retries}). "
+                    f"Waiting {wait_time}s..."
+                )
+                time.sleep(wait_time)
+                continue
 
-                    if e.response.status_code == 429:
-                        # Rate limit
-                        wait_time = (attempt + 1) * 30
-                        logger.warning(
-                            f"Rate limit hit on page {page}. Waiting {wait_time}s..."
-                        )
-                        time.sleep(wait_time)
-                        continue
-
-                # Connection errors or other HTTP errors
-                if (
-                    isinstance(e, requests.exceptions.ConnectionError)
-                    and attempt < max_retries - 1
-                ):
+            match resp.status_code:
+                case HTTPStatus.OK:
+                    break
+                case HTTPStatus.FORBIDDEN:
+                    logger.warning(
+                        f"Reached iNaturalist API result limit (403) on page {page}. "
+                        "iNaturalist limits search results to 10,000 records. Stopping this fetch."
+                    )
+                    return []  # Graceful exit for this request
+                case HTTPStatus.TOO_MANY_REQUESTS:
+                    # Rate limit
                     wait_time = (attempt + 1) * 30
                     logger.warning(
-                        f"Connection issue on page {page} (attempt {attempt + 1}/{max_retries}). "
-                        f"Waiting {wait_time}s..."
+                        f"Rate limit hit on page {page}. Waiting {wait_time}s..."
                     )
-                    time.sleep(wait_time)
-                    continue
 
-                logger.error(
-                    f"Failed to fetch page {page} after {max_retries} attempts: {e}"
-                )
-                raise
+            time.sleep(wait_time)
 
         results = resp.json().get("results", [])
 

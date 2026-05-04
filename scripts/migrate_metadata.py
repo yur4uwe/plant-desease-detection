@@ -7,13 +7,13 @@ import time
 import math
 from tqdm import tqdm
 
-from etl.config.helpers import ETL_ROOT
+from etl.config.helpers import PROJECT_ROOT
 from etl.transform import _get_season, _get_solar_status
 from etl.sources.weather import RateLimitError
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = ETL_ROOT / "data" / "processed" / "observations.db"
+DB_PATH = PROJECT_ROOT / "data" / "processed" / "observations.db"
 
 
 def migrate():

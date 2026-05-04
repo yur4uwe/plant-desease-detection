@@ -4,17 +4,17 @@ import pandas as pd
 import logging
 from pathlib import Path
 from etl.quality import calculate_quality_score
-from logging.setup import setup_logging
+from utils.logging.setup import setup_logging
 
 logger = logging.getLogger(__name__)
 
 
-def non_empty_column(df: pd.DataFrame, cols: list[str]) -> bool:
-    vals = cast(pd.Series, df[cols].notna().sum())
-    return vals.sum() > 0
+def non_empty_column(df: pd.DataFrame, cols: list[str]) -> int:
+    vals = cast(pd.Series, df[cols].notna().all(axis=1))
+    return vals.sum()
 
 
-def audit_database(db_path: str = "etl/data/processed/observations.db"):
+def audit_database(db_path: str = "data/processed/observations.db"):
     if not Path(db_path).exists():
         logger.error(f"Database not found at {db_path}")
         return

@@ -4,7 +4,7 @@ from pathlib import Path
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 
-from logging.setup import setup_logging
+from utils.logging.setup import setup_logging
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ def format_coords(gps_info):
         return None
 
 
-def scan_raw_data(root_dir="etl/data/raw"):
+def scan_raw_data(root_dir="data/raw"):
     logger.info(f"Scanning for EXIF metadata in {root_dir}...")
 
     stats = {"total_images": 0, "has_exif": 0, "has_gps": 0, "has_timestamp": 0}

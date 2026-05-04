@@ -6,7 +6,7 @@ from typing import final, override
 from collections.abc import Iterator
 from datetime import datetime, timezone
 
-from etl.config.helpers import ETL_ROOT
+from etl.config.helpers import PROJECT_ROOT
 from etl.config.types import LocalSourceConfig
 from etl.sources.interface import SourceInterface, RawObservation
 
@@ -20,7 +20,7 @@ class LocalSource(SourceInterface):
         self.name = config.name
         self.root_path = Path(config.root_path)
         if not self.root_path.is_absolute():
-            self.root_path = ETL_ROOT / self.root_path
+            self.root_path = PROJECT_ROOT / self.root_path
 
         self.healthy_re = (
             re.compile(config.healthy_regex) if config.healthy_regex else None
@@ -69,7 +69,7 @@ class LocalSource(SourceInterface):
             label = self._determine_label(img_path)
 
             # Use relative path for image_url to ensure portability across environments
-            rel_path = str(img_path.relative_to(ETL_ROOT.parent))
+            rel_path = str(img_path.relative_to(PROJECT_ROOT.parent))
 
             # Build raw_json for persistence
             raw_data = {

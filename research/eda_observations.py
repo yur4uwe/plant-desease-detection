@@ -17,7 +17,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
-from etl.config.helpers import ETL_ROOT
+from etl.config.helpers import PROJECT_ROOT
 from IPython.display import display
 
 # Configure plotting
@@ -25,7 +25,7 @@ sns.set_theme(style="whitegrid")
 plt.rcParams["figure.figsize"] = [10, 6]
 
 # Define database path
-DB_PATH = Path(ETL_ROOT / "data/processed/observations.db")
+DB_PATH = Path(PROJECT_ROOT / "data/processed/observations.db")
 
 # %%
 # Connect and load data

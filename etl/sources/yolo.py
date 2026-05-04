@@ -6,7 +6,7 @@ from typing import final, override
 from collections.abc import Iterator
 from datetime import datetime, timezone
 
-from etl.config.helpers import ETL_ROOT
+from etl.config.helpers import PROJECT_ROOT
 from etl.config.types import YoloSourceConfig
 from etl.sources.interface import SourceInterface, RawObservation
 
@@ -20,7 +20,7 @@ class YoloSource(SourceInterface):
         self.name = config.name
         self.root_path = Path(config.root_path)
         if not self.root_path.is_absolute():
-            self.root_path = ETL_ROOT / self.root_path
+            self.root_path = PROJECT_ROOT / self.root_path
 
     def _parse_yaml_names(self, yaml_path: Path) -> list[str]:
         """Simple regex-based parser for data.yaml names list."""
@@ -81,7 +81,7 @@ class YoloSource(SourceInterface):
                     continue
 
                 is_diseased = "healthy" not in label_name.lower()
-                rel_path = str(img_path.relative_to(ETL_ROOT.parent))
+                rel_path = str(img_path.relative_to(PROJECT_ROOT.parent))
 
                 raw_data = {
                     "file_path": rel_path,

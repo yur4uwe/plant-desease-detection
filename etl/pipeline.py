@@ -6,15 +6,12 @@ from etl.extract import load_config, run_extract
 from etl.transform import run_transform
 from etl.load import run_load
 from etl.quality import calculate_quality_score
-from logging.setup import setup_logging
+from utils.logging.setup import setup_logging
 
 logger = logging.getLogger(__name__)
 
-# ─── Orchestration ───────────────────────────────────────────────
-
 
 def run_pipeline(config_path: str = "etl/config.toml") -> None:
-
     config: AppConfig = load_config(config_path)
     setup_logging(config.general.log_level)
 

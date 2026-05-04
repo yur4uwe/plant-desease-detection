@@ -7,7 +7,7 @@ from pathlib import Path
 from collections.abc import Iterator
 from datetime import datetime, timezone
 
-from etl.config.helpers import ETL_ROOT
+from etl.config.helpers import PROJECT_ROOT
 from etl.config.types import LocalMetadataSourceConfig
 from etl.sources.interface import SourceInterface, RawObservation
 
@@ -21,11 +21,11 @@ class LocalMetadataSource(SourceInterface):
         self.name = config.name
         self.metadata_path = Path(config.metadata_path)
         if not self.metadata_path.is_absolute():
-            self.metadata_path = ETL_ROOT / self.metadata_path
+            self.metadata_path = PROJECT_ROOT / self.metadata_path
 
         self.images_root = Path(config.images_root)
         if not self.images_root.is_absolute():
-            self.images_root = ETL_ROOT / self.images_root
+            self.images_root = PROJECT_ROOT / self.images_root
 
         self.healthy_re = (
             re.compile(config.healthy_regex) if config.healthy_regex else None
@@ -64,7 +64,7 @@ class LocalMetadataSource(SourceInterface):
             full_img_path = self.images_root / img_filename
 
             # Use relative path from project root for image_url
-            rel_path = str(full_img_path.relative_to(ETL_ROOT.parent))
+            rel_path = str(full_img_path.relative_to(PROJECT_ROOT.parent))
 
             is_diseased = self._determine_is_diseased(row[status_col])
 

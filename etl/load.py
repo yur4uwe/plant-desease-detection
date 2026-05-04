@@ -5,12 +5,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from etl.config.helpers import ETL_ROOT
+from etl.config.helpers import PROJECT_ROOT
 from etl.config.types import AppConfig
 
 logger = logging.getLogger(__name__)
 
-# ─── Table Schema ───────────────────────────────────────────────
 
 CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS observations (
@@ -34,8 +33,6 @@ CREATE TABLE IF NOT EXISTS observations (
 )
 """
 
-# ─── Connections ────────────────────────────────────────────────
-
 
 def get_connection(db_path: str) -> sqlite3.Connection:
     path = Path(db_path)
@@ -46,16 +43,10 @@ def get_connection(db_path: str) -> sqlite3.Connection:
     return conn
 
 
-# ─── Database Initialization ─────────────────────────────────────
-
-
 def init_db(conn: sqlite3.Connection) -> None:
     _ = conn.execute(CREATE_TABLE_SQL)
     conn.commit()
     logger.info("Database schema initialized")
-
-
-# ─── Loading ─────────────────────────────────────────────────────
 
 
 def load_observations(conn: sqlite3.Connection, df: pd.DataFrame) -> int:
@@ -101,7 +92,7 @@ def load_observations(conn: sqlite3.Connection, df: pd.DataFrame) -> int:
     df[cols_to_load].to_sql("temp_observations", conn, if_exists="replace", index=False)
 
     cursor = conn.cursor()
-    
+
     # 1. Remove existing records that are being updated
     _ = cursor.execute("""
         DELETE FROM observations 
@@ -110,22 +101,21 @@ def load_observations(conn: sqlite3.Connection, df: pd.DataFrame) -> int:
         )
     """)
     deleted = cursor.rowcount
-    
+
     # 2. Insert the new/updated records
     _ = cursor.execute(f"""
         INSERT INTO observations ({", ".join(cols_to_load)})
         SELECT {", ".join(cols_to_load)} FROM temp_observations
     """)
     inserted = cursor.rowcount
-    
+
     _ = cursor.execute("DROP TABLE temp_observations")
     conn.commit()
 
-    logger.info(f"Database sync complete: {inserted} rows updated/inserted ({deleted} replaced)")
+    logger.info(
+        f"Database sync complete: {inserted} rows updated/inserted ({deleted} replaced)"
+    )
     return inserted
-
-
-# ─── Verification ────────────────────────────────────────────────
 
 
 def verify_load(conn: sqlite3.Connection) -> int:
@@ -136,11 +126,8 @@ def verify_load(conn: sqlite3.Connection) -> int:
     return count
 
 
-# ─── Orchestration ───────────────────────────────────────────────
-
-
 def run_load(df: pd.DataFrame, config: AppConfig) -> None:
-    db_path = ETL_ROOT / config.load.target_path
+    db_path = PROJECT_ROOT / config.load.target_path
     logger.info(f"Loading {len(df)} observations into {db_path}")
 
     conn = get_connection(db_path.as_posix())

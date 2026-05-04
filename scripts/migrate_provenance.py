@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 def migrate():
-    db_path = "etl/data/processed/observations.db"
+    db_path = "data/processed/observations.db"
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 

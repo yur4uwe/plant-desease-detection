@@ -25,7 +25,7 @@ class iNaturalistSourceConfig(BaseModel):
 class LocalSourceConfig(BaseModel):
     enabled: bool = False
     name: str = "local"
-    root_path: str = "etl/data/raw/local"
+    root_path: str = "data/raw/local"
     include_glob: str = "**/*.jpg"
     status_pattern: str | None = None
     diseased_values: list[str] = Field(default_factory=list)

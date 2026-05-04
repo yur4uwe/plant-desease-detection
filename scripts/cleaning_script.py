@@ -6,13 +6,13 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 import logging
 
-from logging.setup import setup_logging
+from utils.logging.setup import setup_logging
 
 logging.getLogger(__name__)
 
 
 def load_data(
-    db_path="etl/data/processed/observations.db", syn_path="data/syn_data_gen_tsar.csv"
+    db_path="data/processed/observations.db", syn_path="data/syn_data_gen_tsar.csv"
 ) -> pd.DataFrame:
     """Loads original data from DB and appends synthetic data."""
     logging.info(f"Loading database from {db_path}")

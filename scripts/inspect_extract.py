@@ -2,7 +2,7 @@ import argparse
 import logging
 from etl.extract import load_config, get_enabled_sources
 from etl.extract.inspector import inspect_source_data
-from logging.setup import setup_logging
+from utils.logging.setup import setup_logging
 
 logger = logging.getLogger(__name__)
 
