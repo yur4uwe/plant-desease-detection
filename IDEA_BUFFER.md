@@ -29,3 +29,9 @@
     - **Problem:** If the pipeline fails at the `Load` stage, all `Transform` work is lost.
     - **Solution:** Implement an intermediate "Checkpoint" (e.g., saving the transformed DataFrame to a temporary Parquet file). 
     - **Logic:** `run_pipeline` should check for a valid checkpoint and offer to skip directly to `Load` if one exists, saving API credits and compute time.
+
+## Inaturalist API
+Currently, many duplicate observations are fetched from inaturalits and as a result more than half of them are dropped. Query parameters can be used to better filter the data from duplicates to get more observations per ETL run.
+
+## Automation Configuration
+Update the config.toml to enable configuration of the automatic pipeline scheduler with ability of live reload

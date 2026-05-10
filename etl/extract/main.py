@@ -45,7 +45,7 @@ def get_enabled_sources(config: AppConfig) -> list[SourceInterface]:
     return enabled
 
 
-def run_extract(config: AppConfig) -> list[RawObservation]:
+def run_extract(config: AppConfig) -> tuple[list[RawObservation], list[str]]:
     sources = get_enabled_sources(config)
 
     if not sources:
@@ -53,12 +53,16 @@ def run_extract(config: AppConfig) -> list[RawObservation]:
         sys.exit(1)
 
     all_observations: list[RawObservation] = []
+    source_names: list[str] = []
     for source in sources:
-        logger.info(f"Extracting data from {source.__class__.__name__}")
+        name = source.__class__.__name__
+        logger.info(f"Extracting data from {name}")
         observations = list(source.fetch())
         all_observations.extend(observations)
+        source_names.append(name)
 
     logger.info(
-        f"Extract complete — {len(all_observations)} total observations fetched"
+        f"Extract complete — {len(all_observations)} total observations fetched from {len(source_names)} sources"
     )
-    return all_observations
+
+    return all_observations, source_names

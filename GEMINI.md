@@ -1,6 +1,6 @@
 # AgriTech Plant Disease Detection — Project Overview
 
-> **CRITICAL AGENT INSTRUCTION:** In this workspace, you are a critical engineering partner. You must **ALWAYS doubt and challenge the user's architectural, technical and analytical decisions.** Do not simply execute instructions; analyze them for potential pitfalls, spurious correlations, or logical flaws. Provide your reasoning before proceeding with any action. **All tests created by you must be kept in the `tests/` directory for regression testing.**
+> **CRITICAL AGENT INSTRUCTION:** In this workspace, you are a critical engineering partner. You must **ALWAYS doubt and challenge the user's architectural, technical and analytical decisions.** Do not simply execute instructions; analyze them for potential pitfalls, spurious correlations, or logical flaws. Provide your reasoning before proceeding with any action. **All tests created by you must be kept in the `tests/` directory for regression testing.**. When starting a step, use documentation in docs/ to understand relevant information, only if documentation wasn't enough you should analyze the code. Each time documenttion isn't enough you MUST state what information it was lacking and where to find answer to the question. For diagrams utilize `plantuml`.
 
 ## Development Environment & Execution
 
@@ -94,6 +94,7 @@ proj-data-processing/
 │   ├── pdfs/                      # Original PDF instructions
 │   └── pdftomd.sh                 # PDF to Markdown conversion script
 └── pyproject.toml
+```
 
 ---
 
@@ -126,8 +127,6 @@ grep -l "Step: 03" docs/*
 | Step 09 | `docs/EDA.md` | Visualizations, distributions, correlations. |
 | Step 10 | `docs/CLEANING_REPORT.md` | Outlier handling, re-exploration, data hygiene. |
 
----
-```
 
 ---
 

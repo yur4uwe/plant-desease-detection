@@ -41,7 +41,11 @@ def test_get_solar_status():
 
 def test_enrich_environmental_metadata(mocker):
     # Mock weather API to avoid network calls
-    mocker.patch("etl.transform.get_weather_bulk", return_value=[(20.5, 0.0)])
+    mocker.patch("etl.transform.get_weather_bulk", return_value=[(20.5, 0.0), (20.5, 0.0)])
+    
+    # Mock WeatherCache to avoid local database dependencies
+    mock_cache = mocker.patch("etl.utils.weather_cache.WeatherCache")
+    mock_cache.return_value.get.return_value = None
 
     df = pd.DataFrame(
         {

@@ -1,10 +1,11 @@
-import sys
 import logging
+import sys
 from pathlib import Path
+from etl.config.helpers import PROJECT_ROOT
 
 
 def setup_logging(log_level: str) -> None:
-    log_dir = Path("logs")
+    log_dir = Path(PROJECT_ROOT) / "logs"
     log_dir.mkdir(exist_ok=True)
 
     logging.basicConfig(

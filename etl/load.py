@@ -126,15 +126,16 @@ def verify_load(conn: sqlite3.Connection) -> int:
     return count
 
 
-def run_load(df: pd.DataFrame, config: AppConfig) -> None:
+def run_load(df: pd.DataFrame, config: AppConfig) -> int:
     db_path = PROJECT_ROOT / config.load.target_path
     logger.info(f"Loading {len(df)} observations into {db_path}")
 
     conn = get_connection(db_path.as_posix())
     try:
         init_db(conn)
-        _ = load_observations(conn, df)
+        inserted = load_observations(conn, df)
         _ = verify_load(conn)
+        return inserted
     finally:
         conn.close()
         logger.info("Database connection closed")

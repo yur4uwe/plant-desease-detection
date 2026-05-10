@@ -4,16 +4,18 @@ log_level = "INFO"
 raw_data_path = "data/raw"
 processed_data_path = "data/processed"
 
+[automation]
+
 [sources.inaturalist]
 name = "inaturalist"
 enabled = true
 refetch = true
-fetch_mode = "healthy"
+fetch_mode = "all"
 base_url = "https://api.inaturalist.org/v1"
 taxon_id = 47126        # Plantae
 project_ids = [49595, 124267, 227684, 47428, 255039]
 per_page = 200          # максимум дозволений API
-max_pages = 50
+max_pages = 5
 rate_limit_seconds = 5.0
 
 [[sources.local_sources]]

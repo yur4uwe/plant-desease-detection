@@ -8,7 +8,7 @@ import openmeteo_requests
 logger = logging.getLogger(__name__)
 
 # Setup Open-Meteo API client with cache and retry on error
-cache_session = requests_cache.CachedSession(".weather_cache", expire_after=-1)
+cache_session = requests_cache.CachedSession("data/raw/weather_http_cache", expire_after=-1)
 retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
 openmeteo = openmeteo_requests.Client(session=retry_session)  # pyright: ignore[reportArgumentType]
 

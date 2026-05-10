@@ -172,18 +172,36 @@ def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
         ].drop_duplicates()
         unique_loc_list = [tuple(x) for x in unique_locs_df.values]
 
-        logger.info(
-            f"Fetching weather for {len(unique_loc_list)} unique location-date pairs"
-        )
+        from etl.utils.weather_cache import WeatherCache
+        w_cache = WeatherCache()
+        
+        # 1. Check local cache first
+        final_weather_map = {}
+        to_fetch = []
+        
+        for lat, lon, date_str in unique_loc_list:
+            cached = w_cache.get(lat, lon, date_str)
+            if cached:
+                final_weather_map[(lat, lon, date_str)] = cached
+            else:
+                to_fetch.append((lat, lon, date_str))
 
-        # Call the bulk fetcher
-        weather_results = get_weather_bulk(unique_loc_list)  # type: ignore
+        if to_fetch:
+            logger.info(
+                f"Fetching weather for {len(to_fetch)} unique location-date pairs ({len(unique_loc_list) - len(to_fetch)} from cache)"
+            )
+            # Call the bulk fetcher
+            weather_results = get_weather_bulk(to_fetch)  # type: ignore
 
-        # Create a mapping for quick lookup
-        flat_map = {
-            (lat, lon, date): res
-            for (lat, lon, date), res in zip(unique_loc_list, weather_results)
-        }
+            # Save to cache
+            cache_entries = []
+            for (lat, lon, date), res in zip(to_fetch, weather_results):
+                final_weather_map[(lat, lon, date)] = res
+                cache_entries.append((lat, lon, date, res[0], res[1]))
+            
+            w_cache.set_batch(cache_entries)
+        else:
+            logger.info(f"All {len(unique_loc_list)} weather records retrieved from cache")
 
         def _map_weather(row):
             key = (
@@ -191,7 +209,7 @@ def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
                 row["longitude"],
                 row["observation_date"].strftime("%Y-%m-%d"),
             )
-            return flat_map.get(key, (None, None))
+            return final_weather_map.get(key, (None, None))
 
         results = weather_needed.apply(_map_weather, axis=1)
         df.loc[weather_needed_mask, "temperature"] = [r[0] for r in results]
