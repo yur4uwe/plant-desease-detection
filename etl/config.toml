@@ -9,7 +9,7 @@ processed_data_path = "data/processed"
 [sources.inaturalist]
 name = "inaturalist"
 enabled = true
-refetch = true
+refetch = false
 fetch_mode = "all"
 base_url = "https://api.inaturalist.org/v1"
 taxon_id = 47126        # Plantae

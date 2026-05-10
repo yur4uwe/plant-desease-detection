@@ -115,45 +115,49 @@ class iNaturalistSource(SourceInterface):
 
         max_retries = 3
         attempt = 0
-        while 1:
-            if attempt == max_retries:
-                logger.error(
-                    f"Failed to fetch page {page} after {max_retries} attempts"
-                )
-                raise
-
+        while attempt < max_retries:
             try:
                 resp = self.session.get(
                     f"{str(self.config.base_url)}/observations",
                     params=params,
                     timeout=30,
                 )
-            except requests.exceptions.ConnectionError:
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 wait_time = (attempt + 1) * 30
                 logger.warning(
-                    f"Connection issue on page {page} (attempt {attempt + 1}/{max_retries}). "
+                    f"Network issue on page {page} (attempt {attempt + 1}/{max_retries}). "
                     f"Waiting {wait_time}s..."
                 )
                 time.sleep(wait_time)
+                attempt += 1
                 continue
 
-            match resp.status_code:
-                case HTTPStatus.OK:
-                    break
-                case HTTPStatus.FORBIDDEN:
-                    logger.warning(
-                        f"Reached iNaturalist API result limit (403) on page {page}. "
-                        "iNaturalist limits search results to 10,000 records. Stopping this fetch."
-                    )
-                    return []  # Graceful exit for this request
-                case HTTPStatus.TOO_MANY_REQUESTS:
-                    # Rate limit
-                    wait_time = (attempt + 1) * 30
-                    logger.warning(
-                        f"Rate limit hit on page {page}. Waiting {wait_time}s..."
-                    )
-
-            time.sleep(wait_time)
+            if resp.status_code == HTTPStatus.OK:
+                break
+            elif resp.status_code == HTTPStatus.FORBIDDEN:
+                logger.warning(
+                    f"Reached iNaturalist API result limit (403) on page {page}. "
+                    "iNaturalist limits search results to 10,000 records. Stopping this fetch."
+                )
+                return []
+            elif resp.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                wait_time = (attempt + 1) * 30
+                logger.warning(
+                    f"Rate limit hit on page {page}. Waiting {wait_time}s..."
+                )
+                time.sleep(wait_time)
+            else:
+                wait_time = (attempt + 1) * 10
+                logger.warning(
+                    f"Unexpected status {resp.status_code} on page {page}. "
+                    f"Waiting {wait_time}s..."
+                )
+                time.sleep(wait_time)
+            
+            attempt += 1
+        else:
+            logger.error(f"Failed to fetch page {page} after {max_retries} attempts")
+            return [] # Or raise, but returning [] allows pipeline to continue with what it has
 
         results = resp.json().get("results", [])
 

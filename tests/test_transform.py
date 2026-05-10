@@ -41,7 +41,12 @@ def test_get_solar_status():
 
 def test_enrich_environmental_metadata(mocker):
     # Mock weather API to avoid network calls
-    mocker.patch("etl.transform.get_weather_bulk", return_value=[(20.5, 0.0), (20.5, 0.0)])
+    # Generator yields ((lat, lon, date), (temp, precip))
+    mock_weather = [
+        ((45.0, 0.0, "2023-06-21"), (20.5, 0.0)),
+        ((-45.0, 0.0, "2023-06-21"), (20.5, 0.0)),
+    ]
+    mocker.patch("etl.transform.get_weather_bulk", return_value=iter(mock_weather))
     
     # Mock WeatherCache to avoid local database dependencies
     mock_cache = mocker.patch("etl.utils.weather_cache.WeatherCache")

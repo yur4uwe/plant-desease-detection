@@ -190,16 +190,22 @@ def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
             logger.info(
                 f"Fetching weather for {len(to_fetch)} unique location-date pairs ({len(unique_loc_list) - len(to_fetch)} from cache)"
             )
-            # Call the bulk fetcher
-            weather_results = get_weather_bulk(to_fetch)  # type: ignore
-
-            # Save to cache
-            cache_entries = []
-            for (lat, lon, date), res in zip(to_fetch, weather_results):
-                final_weather_map[(lat, lon, date)] = res
-                cache_entries.append((lat, lon, date, res[0], res[1]))
             
-            w_cache.set_batch(cache_entries)
+            # Call the generator bulk fetcher
+            batch_to_save = []
+            for (lat, lon, date), (temp, precip) in get_weather_bulk(to_fetch):
+                final_weather_map[(lat, lon, date)] = (temp, precip)
+                if temp is not None:
+                    batch_to_save.append((lat, lon, date, temp, precip))
+                
+                # Save to cache in smaller sub-batches to ensure progress if crash occurs
+                if len(batch_to_save) >= 50:
+                    w_cache.set_batch(batch_to_save)
+                    batch_to_save = []
+            
+            # Final save
+            if batch_to_save:
+                w_cache.set_batch(batch_to_save)
         else:
             logger.info(f"All {len(unique_loc_list)} weather records retrieved from cache")
 

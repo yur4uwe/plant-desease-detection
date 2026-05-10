@@ -8,7 +8,9 @@ import openmeteo_requests
 logger = logging.getLogger(__name__)
 
 # Setup Open-Meteo API client with cache and retry on error
-cache_session = requests_cache.CachedSession("data/raw/weather_http_cache", expire_after=-1)
+cache_session = requests_cache.CachedSession(
+    "data/raw/weather_http_cache", expire_after=-1
+)
 retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
 openmeteo = openmeteo_requests.Client(session=retry_session)  # pyright: ignore[reportArgumentType]
 
@@ -22,18 +24,20 @@ class RateLimitError(Exception):
         super().__init__(self.reason)
 
 
+from collections.abc import Iterator
+
+
 def get_weather_bulk(
     locations: list[tuple[float, float, str]], max_retries: int = 3
-) -> list[tuple[float | None, float | None]]:
+) -> Iterator[tuple[tuple[float, float, str], tuple[float | None, float | None]]]:
     """
     Fetches weather data for multiple locations in batches.
     'locations' is a list of (lat, lon, date_str).
-    Returns a list of (temperature, precipitation) in the same order.
+    Yields ((lat, lon, date_str), (temperature, precipitation)) as they are fetched.
     """
     if not locations:
-        return []
+        return
 
-    results: list[tuple[float | None, float | None]] = [(None, None)] * len(locations)
     url = "https://archive-api.open-meteo.com/v1/archive"
 
     # Process in chunks of 50 (Open-Meteo allows up to 50 locations per request)
@@ -48,7 +52,7 @@ def get_weather_bulk(
         chunk_idx = (i // chunk_size) + 1
         chunk = locations[i : i + chunk_size]
 
-        # REVISED STRATEGY: Group chunk by date to minimize API calls
+        # Group chunk by date to minimize API calls
         date_map: dict[str, list[int]] = {}
         for idx, (_, _, date_str) in enumerate(chunk):
             date_map.setdefault(date_str, []).append(idx)
@@ -69,6 +73,7 @@ def get_weather_bulk(
                 "daily": ["temperature_2m_mean", "precipitation_sum"],
             }
 
+            success = False
             for attempt in range(max_retries):
                 try:
                     # Small mandatory sleep to avoid burst limit
@@ -77,18 +82,19 @@ def get_weather_bulk(
 
                     for sub_idx, response in enumerate(responses):
                         daily = response.Daily()
+                        temp, precip = None, None
                         if daily:
                             var0 = daily.Variables(0)
                             var1 = daily.Variables(1)
                             if var0 and var1:
-                                temp = float(var0.ValuesAsNumpy()[0])
-                                precip = float(var1.ValuesAsNumpy()[0])
-                                temp = temp if not pd.isna(temp) else None
-                                precip = precip if not pd.isna(precip) else None
+                                temp_val = float(var0.ValuesAsNumpy()[0])
+                                precip_val = float(var1.ValuesAsNumpy()[0])
+                                temp = temp_val if not pd.isna(temp_val) else None
+                                precip = precip_val if not pd.isna(precip_val) else None
 
-                                # Map back to original results list
-                                original_idx = i + chunk_indices[sub_idx]
-                                results[original_idx] = (temp, precip)
+                        loc = chunk[chunk_indices[sub_idx]]
+                        yield loc, (temp, precip)
+                    success = True
                     break  # Success
                 except Exception as e:
                     err_msg = str(e).lower()
@@ -104,8 +110,9 @@ def get_weather_bulk(
                     )
                     break
 
-    fetched_count = sum(1 for r in results if r[0] is not None)
-    logger.info(
-        f"Bulk fetch complete: successfully retrieved {fetched_count}/{len(locations)} weather records"
-    )
-    return results
+            if not success:
+                # Yield None for these indices so the caller knows they failed
+                for sub_idx in chunk_indices:
+                    yield chunk[sub_idx], (None, None)
+
+    logger.info("Bulk fetch complete")

@@ -9,8 +9,8 @@ from etl.extract import load_config
 from etl.transform import run_transform
 from etl.load import run_load
 from etl.sources.interface import RawObservation
+from utils.logging.setup import setup_logging
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("benchmark")
 
 
@@ -95,4 +95,5 @@ if __name__ == "__main__":
     config = load_config("etl/config.toml")
     test_sizes = [100, 500, 1000, 5000]
     results = run_benchmark(config, test_sizes)
+    setup_logging(config.general.log_level)
     print_results(results)

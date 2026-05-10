@@ -49,10 +49,10 @@ def init_db(conn: sqlite3.Connection) -> None:
     logger.info("Database schema initialized")
 
 
-def load_observations(conn: sqlite3.Connection, df: pd.DataFrame) -> int:
+def load_observations(conn: sqlite3.Connection, df: pd.DataFrame) -> dict[str, int]:
     if df.empty:
         logger.warning("DataFrame is empty — nothing to load")
-        return 0
+        return {"inserted": 0, "new": 0, "updated": 0}
 
     loaded_at = datetime.now(timezone.utc).isoformat()
     df = df.copy()
@@ -100,7 +100,7 @@ def load_observations(conn: sqlite3.Connection, df: pd.DataFrame) -> int:
             SELECT source, external_id FROM temp_observations
         )
     """)
-    deleted = cursor.rowcount
+    updated = cursor.rowcount
 
     # 2. Insert the new/updated records
     _ = cursor.execute(f"""
@@ -112,10 +112,11 @@ def load_observations(conn: sqlite3.Connection, df: pd.DataFrame) -> int:
     _ = cursor.execute("DROP TABLE temp_observations")
     conn.commit()
 
+    new_rows = inserted - updated
     logger.info(
-        f"Database sync complete: {inserted} rows updated/inserted ({deleted} replaced)"
+        f"Database sync complete: {inserted} total rows sync'd ({new_rows} new, {updated} updated)"
     )
-    return inserted
+    return {"inserted": inserted, "new": new_rows, "updated": updated}
 
 
 def verify_load(conn: sqlite3.Connection) -> int:
@@ -126,16 +127,16 @@ def verify_load(conn: sqlite3.Connection) -> int:
     return count
 
 
-def run_load(df: pd.DataFrame, config: AppConfig) -> int:
+def run_load(df: pd.DataFrame, config: AppConfig) -> dict[str, int]:
     db_path = PROJECT_ROOT / config.load.target_path
     logger.info(f"Loading {len(df)} observations into {db_path}")
 
     conn = get_connection(db_path.as_posix())
     try:
         init_db(conn)
-        inserted = load_observations(conn, df)
+        stats = load_observations(conn, df)
         _ = verify_load(conn)
-        return inserted
+        return stats
     finally:
         conn.close()
         logger.info("Database connection closed")

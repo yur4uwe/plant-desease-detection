@@ -9,3 +9,6 @@ logs/
 data/
 .gemini/
 *_cache.sqlite
+
+# Ignore to avoid constantly committing large binary files
+observability/
