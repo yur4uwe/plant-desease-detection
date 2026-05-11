@@ -150,6 +150,11 @@ class TelemetryManager:
             )
 
     def log_quality(self, results: dict):
+        # Quality stage weren't run so we simply ignore logging the quality to the database
+        if "metrics" not in results or "raw_counts" not in results:
+            logger.debug("Quality results not available. Skipping.")
+            return
+
         m = results["metrics"]
         c = results["raw_counts"]
         with sqlite3.connect(self.db_path) as conn:

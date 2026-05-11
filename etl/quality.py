@@ -4,7 +4,7 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def calculate_quality_score(df: pd.DataFrame) -> dict:
+def calculate_quality_score(df: pd.DataFrame) -> dict | None:
     """
     Calculates an integral quality score (Q) for the dataset based on:
     - w1 (0.50): Completeness of critical fields (image_url, is_diseased)
@@ -14,7 +14,7 @@ def calculate_quality_score(df: pd.DataFrame) -> dict:
     """
     if df.empty:
         logger.warning("Empty DataFrame provided for quality assessment.")
-        return {"score": 0.0, "details": {}}
+        return None
 
     # TODO: Add informative output of content of DataFrame
 

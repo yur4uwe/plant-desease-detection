@@ -44,7 +44,14 @@ def audit_database(db_path: str = "data/processed/observations.db"):
             df, ["temperature", "precipitation", "season", "solar_status"]
         )
 
-        source_counts = df["source"].value_counts().to_dict()
+        source_counts: dict[str, str] = {}
+        for source in df["source"].unique():
+            total_count = df[df["source"] == source].shape[0]
+            diseased_count = df[df["source"] == source]["is_diseased"].sum()
+            healthy_count = total_count - diseased_count
+            source_counts[source] = (
+                f"Total: {total_count} (Diseased: {diseased_count}, Healthy: {healthy_count})"
+            )
 
         # Taxonomic Diversity
         unique_labels = df["label"].nunique()
@@ -82,6 +89,12 @@ def audit_database(db_path: str = "data/processed/observations.db"):
         print("  +--sources:")
         for src, count in source_counts.items():
             print(f"     +- {src:12} = {count}")
+
+        # Actually unreachable case in this script
+        # Still exists due to pipeline needing to see failure of quality calculation
+        if results is None:
+            print("No data to audit.")
+            return
 
         print("-" * 50)
         print(f"INTEGRAL QUALITY SCORE (Q): {results['integral_score']}")

@@ -46,14 +46,12 @@ def drop_duplicates(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
-    df["observation_date"] = (
-        pd.to_datetime(df["observation_date"], errors="coerce")
-        .dt.tz_localize(None)
-    )
-    df["extracted_at"] = (
-        pd.to_datetime(df["extracted_at"], errors="coerce")
-        .dt.tz_localize(None)
-    )
+    df["observation_date"] = pd.to_datetime(
+        df["observation_date"], errors="coerce"
+    ).dt.tz_localize(None)
+    df["extracted_at"] = pd.to_datetime(
+        df["extracted_at"], errors="coerce"
+    ).dt.tz_localize(None)
     return df
 
 
@@ -173,12 +171,13 @@ def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
         unique_loc_list = [tuple(x) for x in unique_locs_df.values]
 
         from etl.utils.weather_cache import WeatherCache
+
         w_cache = WeatherCache()
-        
+
         # 1. Check local cache first
         final_weather_map = {}
         to_fetch = []
-        
+
         for lat, lon, date_str in unique_loc_list:
             cached = w_cache.get(lat, lon, date_str)
             if cached:
@@ -190,24 +189,26 @@ def enrich_environmental_metadata(df: pd.DataFrame) -> pd.DataFrame:
             logger.info(
                 f"Fetching weather for {len(to_fetch)} unique location-date pairs ({len(unique_loc_list) - len(to_fetch)} from cache)"
             )
-            
+
             # Call the generator bulk fetcher
             batch_to_save = []
             for (lat, lon, date), (temp, precip) in get_weather_bulk(to_fetch):
                 final_weather_map[(lat, lon, date)] = (temp, precip)
                 if temp is not None:
                     batch_to_save.append((lat, lon, date, temp, precip))
-                
+
                 # Save to cache in smaller sub-batches to ensure progress if crash occurs
                 if len(batch_to_save) >= 50:
                     w_cache.set_batch(batch_to_save)
                     batch_to_save = []
-            
+
             # Final save
             if batch_to_save:
                 w_cache.set_batch(batch_to_save)
         else:
-            logger.info(f"All {len(unique_loc_list)} weather records retrieved from cache")
+            logger.info(
+                f"All {len(unique_loc_list)} weather records retrieved from cache"
+            )
 
         def _map_weather(row):
             key = (
@@ -238,7 +239,15 @@ def cast_types(df: pd.DataFrame) -> pd.DataFrame:
 
     # Explicitly cast categorical columns to string type
     # This prevents Pandera SchemaErrors when columns contain all None/NaN
-    for col in ["source", "external_id", "image_url", "label", "season", "solar_status", "provenance"]:
+    for col in [
+        "source",
+        "external_id",
+        "image_url",
+        "label",
+        "season",
+        "solar_status",
+        "provenance",
+    ]:
         if col in df.columns:
             df[col] = df[col].astype("string")
 
@@ -278,7 +287,8 @@ def run_transform(observations: list[RawObservation]) -> pd.DataFrame:
 
     df = drop_duplicates(df)
     df = parse_dates(df)
-    df = enrich_environmental_metadata(df)
+    # Turns out I actually don't need this
+    # df = enrich_environmental_metadata(df)
     df = cast_types(df)
     df = drop_invalid_coordinates(df)
 

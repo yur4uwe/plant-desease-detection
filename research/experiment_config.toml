@@ -1,0 +1,56 @@
+# Experiment Configuration for Step 12: Model Refinement
+
+[sampling]
+# Total images to use in the experiment
+sample_sizes = [500]
+random_state = 42
+test_size = 0.2
+
+# Define the composition of the training/test pool. 
+# dataset_weight: part of this dataset in resulting sample size
+# healthy_pct: percentage of healthy photos in amount of samples dedicated to the dataset
+# diseased_pct: percentage of diseased photos in amount of samples dedicated to the dataset
+# Both healthy_pct and diseased_pct must add up to 100
+[composition]
+    [composition.inaturalist]
+    dataset_weight = 0.4
+    healthy_pct = 50
+    diseased_pct = 50
+
+    [composition.local_ccmt_ghana]
+    dataset_weight = 0.3
+    healthy_pct = 50
+    diseased_pct = 50
+
+    [composition.yolo_mcdd_india]
+    dataset_weight = 0.3
+    healthy_pct = 50
+    diseased_pct = 50
+
+# Define specific experimental runs to execute
+[experiments]
+    # Standard run: uses the composition above and stratifies
+    run_standard = true
+
+    # Balanced run: forces 50/50 class balance across all sources
+    run_balanced = true
+
+    # Cross-source validation: trains on field data (CCMT/MCDD), tests on crowdsourced (iNaturalist)
+    run_cross_source = true
+
+[models]
+# Which models to include in the benchmark
+# Possible values: "MobileNetV2", "Dummy", "RandomForest", "XGBoost"
+list = ["MobileNetV2"]
+# Deep Learning specific
+epochs = 10
+batch_size = 8
+fine_tune_last_blocks = 8
+
+[visualization]
+# Enable Grad-CAM visualization
+enabled = true
+# Directory to save heatmaps
+output_dir = "observability/grad-cam"
+# Number of samples to visualize per experiment run
+num_samples = 2

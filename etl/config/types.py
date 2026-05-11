@@ -18,7 +18,7 @@ class iNaturalistSourceConfig(BaseModel):
     taxon_id: int = 47126  # Plantae
     project_ids: list[int] = Field(default_factory=list)
     per_page: int = Field(200, gt=0, le=200)
-    max_pages: int = Field(10, gt=0)
+    target_count: int = Field(5000, gt=0)
     rate_limit_seconds: float = Field(2.0, ge=0)
 
 

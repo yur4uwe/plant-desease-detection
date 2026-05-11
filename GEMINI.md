@@ -7,8 +7,8 @@
 - **Environment:** Use the virtual environment located at `.data-proc-env/`.
 - **Execution:** Always prefix commands with `PYTHONPATH=. .data-proc-env/bin/python`.
 - **Key Commands:**
-  - Run ETL Pipeline: `PYTHONPATH=. .data-proc-env/bin/python -m etl.pipeline.py`
-  - Run Quality Audit: `PYTHONPATH=. .data-proc-env/bin/python scripts/audit_quality.py`
+  - Run ETL Pipeline: `PYTHONPATH=. .data-proc-env/bin/python -m etl.pipeline`
+  - Run Quality Audit: `PYTHONPATH=. .data-proc-env/bin/python -m scripts.audit_quality`
   - Run Unit Tests: `PYTHONPATH=. .data-proc-env/bin/pytest tests/`
 
 ## What Is This Project?

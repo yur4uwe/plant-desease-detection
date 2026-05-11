@@ -1,6 +1,8 @@
 from http import HTTPStatus
 import json
 import logging
+from pathlib import Path
+import sqlite3
 import time
 from typing import Any, final, override
 from collections.abc import Iterator
@@ -27,6 +29,21 @@ class iNaturalistSource(SourceInterface):
             }
         )
         self.cache_dir = PROJECT_ROOT / "data" / "raw" / "inaturalist"
+        self.seen_ids: set[str] = self._load_seen_ids()
+
+    def _load_seen_ids(self) -> set[str]:
+        """Loads all existing iNaturalist external_ids from the database."""
+        db_path = PROJECT_ROOT / "data" / "processed" / "observations.db"
+        if not db_path.exists():
+            return set()
+        try:
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT external_id FROM observations WHERE source = 'inaturalist'")
+                return {str(row[0]) for row in cursor.fetchall()}
+        except Exception as e:
+            logger.warning(f"Could not load seen_ids from DB: {e}")
+            return set()
 
     def _parse_observation(
         self, raw: dict[str, Any], is_diseased: bool
@@ -74,42 +91,15 @@ class iNaturalistSource(SourceInterface):
         except ValueError:
             return None
 
-    def fetch_page(
-        self, page: int, is_diseased: bool, project_id: int | None = None
-    ) -> list[RawObservation]:
-        # Include project_id in cache path if provided
-        subdir = "diseased" if is_diseased else "healthy"
-        filename = f"page_{page}.json"
-        if project_id:
-            filename = f"proj_{project_id}_page_{page}.json"
-        cache_path = self.cache_dir / subdir / filename
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
+    # Cache path is guaranteed to exist
+    def _return_cached(self, cache_path: Path) -> tuple[list[RawObservation], int]:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            observations = [RawObservation.from_dict(d) for d in data]
+            max_id = max((int(obs.external_id) for obs in observations), default=0)
+            return observations, max_id
 
-        if cache_path.exists() and not self.config.refetch:
-            with open(cache_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return [RawObservation.from_dict(d) for d in data]
-
-        params: dict[str, Any] = {
-            "taxon_id": self.config.taxon_id,
-            "per_page": self.config.per_page,
-            "page": page,
-            "photos": "true",
-            "quality_grade": "research",
-        }
-
-        if is_diseased and project_id:
-            params["project_id"] = project_id
-        elif not is_diseased:
-            # For healthy, exclude observations from our disease projects
-            if self.config.project_ids:
-                params["not_in_project"] = ",".join(map(str, self.config.project_ids))
-
-        msg = f"Fetching {'diseased' if is_diseased else 'healthy'} page {page}"
-        if project_id:
-            msg += f" (project {project_id})"
-        logger.info(msg)
-
+    def _try_request(self, params: dict[str, Any], id_below: int | None):
         # Rate limiting
         time.sleep(self.config.rate_limit_seconds)
 
@@ -125,7 +115,7 @@ class iNaturalistSource(SourceInterface):
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 wait_time = (attempt + 1) * 30
                 logger.warning(
-                    f"Network issue on page {page} (attempt {attempt + 1}/{max_retries}). "
+                    f"Network issue on batch below {id_below} (attempt {attempt + 1}/{max_retries}). "
                     f"Waiting {wait_time}s..."
                 )
                 time.sleep(wait_time)
@@ -133,66 +123,194 @@ class iNaturalistSource(SourceInterface):
                 continue
 
             if resp.status_code == HTTPStatus.OK:
-                break
+                return resp.json().get("results", []), id_below
             elif resp.status_code == HTTPStatus.FORBIDDEN:
                 logger.warning(
-                    f"Reached iNaturalist API result limit (403) on page {page}. "
-                    "iNaturalist limits search results to 10,000 records. Stopping this fetch."
+                    f"Reached iNaturalist API result limit (403) on batch below {id_below}. "
+                    "Stopping this fetch."
                 )
-                return []
+                return [], id_below
             elif resp.status_code == HTTPStatus.TOO_MANY_REQUESTS:
                 wait_time = (attempt + 1) * 30
                 logger.warning(
-                    f"Rate limit hit on page {page}. Waiting {wait_time}s..."
+                    f"Rate limit hit on batch below {id_below}. Waiting {wait_time}s..."
                 )
                 time.sleep(wait_time)
             else:
                 wait_time = (attempt + 1) * 10
                 logger.warning(
-                    f"Unexpected status {resp.status_code} on page {page}. "
+                    f"Unexpected status {resp.status_code} on batch below {id_below}. "
                     f"Waiting {wait_time}s..."
                 )
                 time.sleep(wait_time)
-            
+
             attempt += 1
         else:
-            logger.error(f"Failed to fetch page {page} after {max_retries} attempts")
-            return [] # Or raise, but returning [] allows pipeline to continue with what it has
+            logger.error(
+                f"Failed to fetch batch below {id_below} after {max_retries} attempts"
+            )
+            return [], id_below
 
-        results = resp.json().get("results", [])
+    def fetch_batch(
+        self, id_below: int | None, is_diseased: bool, project_id: int | None = None, q: str | None = None
+    ) -> tuple[list[RawObservation], int]:
+        # Include project_id or q in cache path if provided
+        subdir = "diseased" if is_diseased else "healthy"
+        cursor_str = f"below_{id_below}" if id_below else "newest"
+        
+        if project_id:
+            filename = f"proj_{project_id}_{cursor_str}.json"
+        elif q:
+            filename = f"query_{q}_{cursor_str}.json"
+        else:
+            filename = f"batch_{cursor_str}.json"
+            
+        cache_path = self.cache_dir / subdir / filename
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-        observations = [self._parse_observation(r, is_diseased) for r in results]
+        if not self.config.refetch and cache_path.exists():
+            return self._return_cached(cache_path)
+
+        params: dict[str, Any] = {
+            "taxon_id": self.config.taxon_id,
+            "per_page": self.config.per_page,
+            "order_by": "id",
+            "order": "desc",
+            "photos": "true",
+            "quality_grade": "research,needs_id",
+        }
+        if id_below:
+            params["id_below"] = id_below
+        if q:
+            params["q"] = q
+
+        if is_diseased and project_id:
+            params["project_id"] = project_id
+        elif not is_diseased:
+            # For healthy, exclude observations from our disease projects
+            if self.config.project_ids:
+                params["not_in_project"] = ",".join(map(str, self.config.project_ids))
+
+        msg = f"Fetching {'diseased' if is_diseased else 'healthy'} batch {cursor_str}"
+        if project_id:
+            msg += f" (project {project_id})"
+        elif q:
+            msg += f" (query '{q}')"
+        logger.info(msg)
+
+        results, _ = self._try_request(params, id_below if id_below else 0)
+
+        observations = []
+        lowest_id = id_below if id_below else float('inf')
+        for r in results:
+            obs = self._parse_observation(r, is_diseased)
+            observations.append(obs)
+            obs_id = int(obs.external_id)
+            if obs_id < lowest_id:
+                lowest_id = obs_id
 
         with open(cache_path, "w", encoding="utf-8") as f:
             json.dump([obs.to_dict() for obs in observations], f)
 
-        return observations
+        logger.debug(
+            f"Wrote {len(observations)} observations to {cache_path}, with lowest id: {lowest_id}"
+        )
 
-    def _fetch_healthy(self) -> Iterator[RawObservation]:
-        for page in range(1, self.config.max_pages + 1):
-            yield from self.fetch_page(page, is_diseased=False)
+        return observations, int(lowest_id) if lowest_id != float('inf') else 0
 
-    def _fetch_diseased(self) -> Iterator[RawObservation]:
-        num_projects = len(self.config.project_ids)
-        if num_projects == 0:
-            logger.warning(
-                "Diseased fetching requested but no project_ids defined in config."
+    def _get_last_id(self, is_diseased: bool, project_id: int | None = None) -> int:
+        """Retrieves the highest ID actually stored for this project from cache or DB."""
+        subdir = "diseased" if is_diseased else "healthy"
+        folder = self.cache_dir / subdir
+
+        max_id = 0
+        if folder.exists():
+            pattern = f"proj_{project_id}_since_*.json" if project_id else "batch_since_*.json"
+            for p in folder.glob(pattern):
+                try:
+                    with open(p, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if data:
+                            # Find the real max ID inside the file
+                            file_max = max((int(obs["external_id"]) for obs in data), default=0)
+                            if file_max > max_id:
+                                max_id = file_max
+                except (json.JSONDecodeError, KeyError, ValueError):
+                    continue
+
+        if max_id > 0:
+            logger.debug(f"Found max_id {max_id} for {'project '+str(project_id) if project_id else 'healthy'} in cache")
+
+        return max_id
+    def _fetch_until_target(
+        self, target: int, is_diseased: bool, project_id: int | None = None, q: str | None = None
+    ) -> Iterator[RawObservation]:
+        yielded = 0
+        current_id_below = None # Start from newest
+
+        target_desc = f"project {project_id}" if project_id else (f"query '{q}'" if q else "healthy")
+        logger.info(f"Target: {target} for {target_desc}. Starting from newest.")
+
+        while yielded < target:
+            observations, next_id_below = self.fetch_batch(
+                current_id_below, is_diseased, project_id, q
             )
-            return
 
-        pages_per_project = self.config.max_pages // num_projects
-        remainder = self.config.max_pages % num_projects
+            if not observations:
+                logger.debug(f"No observations returned in batch below {current_id_below}. Terminating loop.")
+                break
 
-        for i, project_id in enumerate(self.config.project_ids):
-            pages_to_fetch = pages_per_project + (1 if i < remainder else 0)
-            for page in range(1, pages_to_fetch + 1):
-                yield from self.fetch_page(
-                    page, is_diseased=True, project_id=project_id
-                )
+            batch_yielded = 0
+            for obs in observations:
+                if obs.external_id in self.seen_ids:
+                    continue
+
+                self.seen_ids.add(obs.external_id)
+                yield obs
+                yielded += 1
+                batch_yielded += 1
+                if yielded >= target:
+                    break
+            
+            logger.info(f"Batch below {current_id_below} yielded {batch_yielded}/{len(observations)} new observations. Total: {yielded}/{target}")
+
+            if current_id_below and next_id_below >= current_id_below:
+                logger.debug(f"next_id ({next_id_below}) not progressing below current_id ({current_id_below}). Terminating loop.")
+                break
+            current_id_below = next_id_below
+
+
+    # I left this here for reference, it won't be used as its simply function call for the sake of fucntion call
+    # def _fetch_healthy(self, target: int) -> Iterator[RawObservation]:
+    #     return self._fetch_until_target(target, is_diseased=False)
+
+    def _fetch_diseased(self, target: int) -> Iterator[RawObservation]:
+        num_projects = len(self.config.project_ids)
+        
+        # 1. First, fetch from specific projects (High quality/Verified)
+        project_target = target // (num_projects + 1) if num_projects > 0 else 0
+        
+        for project_id in self.config.project_ids:
+            yield from self._fetch_until_target(project_target, True, project_id=project_id)
+
+        # 2. Then, fill the remainder with a global keyword search
+        yield from self._fetch_until_target(target, True, q="disease")
 
     @override
     def fetch(self) -> Iterator[RawObservation]:
+        diseased_target = self.config.target_count
+        healthy_target = self.config.target_count
+        if self.config.fetch_mode == "all":
+            diseased_target //= 2
+            healthy_target = healthy_target - diseased_target
+
         if self.config.fetch_mode in ("all", "diseased"):
-            yield from self._fetch_diseased()
+            logger.info(
+                f"Fetching {diseased_target} diseased observations from iNaturalist"
+            )
+            yield from self._fetch_diseased(target=diseased_target)
         if self.config.fetch_mode in ("all", "healthy"):
-            yield from self._fetch_healthy()
+            logger.info(
+                f"Fetching {healthy_target} healthy observations from iNaturalist"
+            )
+            yield from self._fetch_until_target(healthy_target, False)

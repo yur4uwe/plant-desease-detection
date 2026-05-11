@@ -66,7 +66,9 @@ def run_pipeline(config_path: str = "etl/config.toml", resume: bool = False) -> 
         checkpoints.clear()
 
     logger.info("=" * 50)
-    logger.info(f"Starting ETL pipeline (Resume: {resume})")
+    logger.info(
+        f"Starting ETL pipeline (Resume: {resume}) (Refetch: {config.sources.inaturalist.refetch})"
+    )
     logger.info("=" * 50)
 
     try:

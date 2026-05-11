@@ -13,15 +13,25 @@ SAVE_DIR = Path("data/raw/inaturalist/images")
 LIMIT = 1000  # Number of healthy iNaturalist images to fetch for research
 
 
-def fetch_images(limit: int):
+def fetch_images(mode: str, limit: int):
     SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
     conn = sqlite3.connect(DB_PATH)
     # Get healthy iNaturalist observations that don't have local images
-    query = """
+    match mode:
+        case "healthy":
+            clause = "AND is_diseased = 0"
+        case "diseased":
+            clause = "AND is_diseased = 1"
+        case "all":
+            clause = ""
+        case _:
+            raise ValueError(f"Invalid mode: {mode}")
+
+    query = f"""
     SELECT external_id, image_url 
     FROM observations 
-    WHERE source = 'inaturalist' AND is_diseased = 0
+    WHERE source = 'inaturalist' {clause} 
     LIMIT ?
     """
     df = pd.read_sql_query(query, conn, params=[limit])
@@ -75,5 +85,8 @@ if __name__ == "__main__":
     args.add_argument(
         "--limit", type=int, default=1000, help="Number of images to fetch"
     )
+    args.add_argument(
+        "--mode", type=str, default="all", help="What type of images to fetch"
+    )
     args = args.parse_args()
-    fetch_images(limit=args.limit)
+    fetch_images(mode=args.mode, limit=args.limit)
