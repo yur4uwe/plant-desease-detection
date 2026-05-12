@@ -124,12 +124,12 @@ grep -r "Step: 03" docs/
 grep -l "Step: 03" docs/*
 ```
 
-The documentation files are preferred when you want to familiarize yourself with the project's design and implementation. Each time documenttion isn't enough you MUST state what information it was lacking and where to find answer to the question.  When starting a step, use documentation in docs/ to understand relevant information, only if documentation wasn't enough you should analyze the code.
+The documentation files are preferred when you want to familiarize yourself with the project's design and implementation. Each time documentation isn't enough you MUST state what information it was lacking and where to find answer to the question.  When starting a step, use documentation in docs/ to understand relevant information, only if documentation wasn't enough you should analyze the code.
 
 ### Visualization
 
 The project uses `plantuml` for documentation and architecture diagrams. Each diagram should be compiled via an engine and put into `docs/images/`, and original text MUST exist above the reference to image in target `.md` file inside a comment. Example of the structure:
-<!-- Inside the strucutre the code block uses 2 tildas to start a code fence instead of 3, this is made to preserve the parenting fence -->
+<!-- Inside the structure the code block uses 2 tildas to start a code fence instead of 3, this is made to preserve the parenting fence -->
 ```text
 <!--
 ``plantuml

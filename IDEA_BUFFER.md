@@ -1,8 +1,10 @@
 # Idea Buffer & Technical Debt
+<!-- Version: 1.0.2 -->
+<!-- Last Updated: May 2026 -->
 
 ## Architectural Goals
 - **Source Agnosticity:** Transition from source-specific extraction logic to a unified Integration Layer. Source classes should handle their own mechanics (pagination, auth, local vs remote), while the pipeline treats them as `RawObservation` generators.
-- **Weather API Rotation:** Monitor Open-Meteo usage (~27 calls/run currently). If scaling beyond 10k/day, implement a rotation strategy with secondary providers (e.g., Pirate Weather or Visual Crossing).
+- **Weather API Rotation (High Priority):** Monitor Open-Meteo usage (~27 calls/run currently). If scaling beyond 10k/day, implement a rotation strategy with secondary providers (e.g., Pirate Weather or Visual Crossing).
 
 ## Data Quality & Model Bias
 - **Class Imbalance:** Address the current skew (964 Healthy vs 387 Diseased) by integrating secondary sources (Kaggle/Local) specifically for diseased samples.
@@ -30,8 +32,13 @@
     - **Solution:** Implement an intermediate "Checkpoint" (e.g., saving the transformed DataFrame to a temporary Parquet file). 
     - **Logic:** `run_pipeline` should check for a valid checkpoint and offer to skip directly to `Load` if one exists, saving API credits and compute time.
 
-## Inaturalist API
-Currently, many duplicate observations are fetched from inaturalits and as a result more than half of them are dropped. Query parameters can be used to better filter the data from duplicates to get more observations per ETL run.
+## iNaturalist API
+Currently, many duplicate observations are fetched from iNaturalist and as a result more than half of them are dropped. Query parameters can be used to better filter the data from duplicates to get more observations per ETL run.
 
 ## Automation Configuration
-Update the config.toml to enable configuration of the automatic pipeline scheduler with ability of live reload
+Update the config.toml to enable configuration of the automatic pipeline scheduler with ability of live reload.
+
+## Future Research
+- **Multi-modal Fusion:** Investigate if combining image features with weather data (temp/precip) improves classification accuracy compared to vision-only models.
+
+<!-- End of Buffer -->

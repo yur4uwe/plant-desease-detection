@@ -2,6 +2,7 @@ import logging
 import time
 import sys
 import argparse
+import tomllib
 from etl.pipeline import run_pipeline
 from utils.logging.setup import setup_logging
 
@@ -11,12 +12,12 @@ logger = logging.getLogger("scheduler")
 def main():
     parser = argparse.ArgumentParser(description="ETL Pipeline Scheduler")
     parser.add_argument(
-        "--interval", type=int, default=60, help="Interval between runs in minutes"
-    )
-    parser.add_argument(
         "--config", type=str, default="etl/config.toml", help="Path to config file"
     )
     args = parser.parse_args()
+
+    with open(args.config, "rb") as f:
+        config = tomllib.load(f)
 
     setup_logging("INFO")
 
@@ -38,7 +39,7 @@ def main():
                 logger.exception(f"Unexpected error during scheduled run: {e}")
 
             logger.info(f"Scheduled run complete. Waiting {args.interval} minutes...")
-            time.sleep(args.interval * 60)
+            time.sleep(config["automation"]["interval"] * 60)
     except KeyboardInterrupt:
         logger.info("Scheduler stopped by user")
     except Exception as e:

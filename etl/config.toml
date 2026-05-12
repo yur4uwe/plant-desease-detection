@@ -5,6 +5,7 @@ raw_data_path = "data/raw"
 processed_data_path = "data/processed"
 
 [automation]
+interval = 24 # Amount of time (in hours) between pipeline runs
 
 [sources.inaturalist]
 name = "inaturalist"
