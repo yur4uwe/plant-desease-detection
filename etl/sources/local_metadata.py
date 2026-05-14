@@ -64,7 +64,7 @@ class LocalMetadataSource(SourceInterface):
             full_img_path = self.images_root / img_filename
 
             # Use relative path from project root for image_url
-            rel_path = str(full_img_path.relative_to(PROJECT_ROOT.parent))
+            rel_path = str(full_img_path.relative_to(PROJECT_ROOT))
 
             is_diseased = self._determine_is_diseased(row[status_col])
 

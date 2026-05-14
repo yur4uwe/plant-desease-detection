@@ -1,28 +1,29 @@
 # Experiment Configuration for Step 12: Model Refinement
-
 [sampling]
 # Total images to use in the experiment
-sample_sizes = [500]
+sample_sizes = [1000]
 random_state = 230420
 test_size = 0.15
 val_size = 0.15
 
-# Define the composition of the training/test pool. 
-[composition]
-    [composition.inaturalist]
-    dataset_weight = 0.2
-    healthy_pct = 50
-    diseased_pct = 50
+[modes]
+    [modes.standard]
+    inaturalist = 0.3
+    local_ccmt_ghana = 0.3
+    yolo_mcdd_india = 0.3
+    meta_plantseg = 0.1
 
-    [composition.local_ccmt_ghana]
-    dataset_weight = 0.4
-    healthy_pct = 50
-    diseased_pct = 50
+    [modes.balanced]
+    inaturalist = 0.4
+    local_ccmt_ghana = 0.2
+    yolo_mcdd_india = 0.2
+    meta_plantseg = 0.2
 
-    [composition.yolo_mcdd_india]
-    dataset_weight = 0.4
-    healthy_pct = 50
-    diseased_pct = 50
+    [modes.cross_source]
+    local_ccmt_ghana = 0.3
+    yolo_mcdd_india = 0.3
+    meta_plantseg = 0.3
+    inaturalist_leak = 0.1
 
 # Define specific experimental runs to execute
 [experiments]
@@ -32,7 +33,7 @@ val_size = 0.15
 
 [models]
 # Including Dummy for baseline comparison
-list = ["Dummy", "MobileNetV2", "XGBoost", "RandomForest"]
+list = ["Dummy", "MobileNetV2", "XGBoost"]
 # Deep Learning specific
 epochs = 7
 batch_size = 32

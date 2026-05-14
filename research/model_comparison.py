@@ -40,7 +40,6 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 DB_PATH = Path("data/processed/observations.db")
 PROJECT_ROOT = Path(".").resolve()
 CONFIG_PATH = Path("research/experiment_config.toml")
-LOG_PATH = Path("docs/EXPERIMENT_LOG.md")
 CM_OUTPUT_DIR = Path("docs/images/confusion_matrices")
 ROC_OUTPUT_DIR = Path("docs/images/roc_curves")
 
@@ -156,7 +155,34 @@ def load_data_from_db() -> pd.DataFrame:
         p = PROJECT_ROOT / row["image_url"]
         if p.exists():
             return p
-        p = (
+
+        # Generic fallback for local datasets with train/val/test/valid splits
+        # if the database path is slightly off or missing the split directory.
+        fname = Path(row["image_url"]).name
+        source_dirs = {
+            "meta_plantseg": "data/raw/plantseg/plantseg/images",
+            "yolo_mcdd_india": "data/raw/mcdd/Multi-Crop Disease Dataset/Multicrop Disease Dataset/Multicrop Disease Dataset",
+            "local_ccmt_ghana": "data/raw/ccmt",
+        }
+
+        if row["source"] in source_dirs:
+            base_search = PROJECT_ROOT / source_dirs[row["source"]]
+            for sub in [
+                "",
+                "train",
+                "val",
+                "valid",
+                "test",
+                "train/images",
+                "valid/images",
+                "test/images",
+            ]:
+                p_alt = base_search / sub / fname
+                if p_alt.exists():
+                    return p_alt
+
+        # Fallback for inaturalist (which uses external_id in a specific folder)
+        p_inat = (
             PROJECT_ROOT
             / "data"
             / "raw"
@@ -164,33 +190,179 @@ def load_data_from_db() -> pd.DataFrame:
             / "images"
             / f"{row['external_id']}.jpg"
         )
-        return p if p.exists() else None
+        return p_inat if p_inat.exists() else None
 
     df["local_path"] = df.apply(_resolve, axis=1)
     return cast(pd.DataFrame, df[df["local_path"].notnull()].copy())
 
 
-def sample_by_composition(df: pd.DataFrame, total_size: int, cfg: dict) -> pd.DataFrame:
-    """Samples data based on source/label composition rules."""
+def _sample_standard(
+    base_df: pd.DataFrame, weights: dict, total_size: int, seed: int
+) -> list[pd.DataFrame]:
+    """Helper for stratified sampling according to natural distribution."""
     sampled = []
+    for source, weight in weights.items():
+        n_target = int(total_size * weight)
+        source_df = base_df[base_df["source"] == source]
+        n = min(len(source_df), n_target)
+        if n > 0:
+            sampled.append(source_df.sample(n=n, random_state=seed))
+            print(f"Sampling {source}: {n} (Standard)")
+    return sampled
+
+
+def _sample_balanced_quota(
+    df: pd.DataFrame,
+    weights: dict,
+    total_size: int,
+    seed: int,
+    allow_oversampling: bool = False,
+) -> list[pd.DataFrame]:
+    """Dynamically balances classes across sources based on global targets."""
+    sampled = []
+    target_per_class = total_size // 2
+    rem_h, rem_d = target_per_class, target_per_class
+
+    # 1. Resolve Single-Class Constraints
+    quotas = {}
+    for src, weight in weights.items():
+        quota = int(total_size * weight)
+        src_df = df[df["source"] == src]
+        h_pool = src_df[src_df["is_diseased"] == 0]
+        d_pool = src_df[src_df["is_diseased"] == 1]
+
+        if len(h_pool) == 0:
+            n = min(len(d_pool), quota)
+            quotas[src] = {"n": n, "cls": 1, "single": True}
+            rem_d -= n
+        elif len(d_pool) == 0:
+            n = min(len(h_pool), quota)
+            quotas[src] = {"n": n, "cls": 0, "single": True}
+            rem_h -= n
+        else:
+            quotas[src] = {"quota": quota, "single": False}
+
+    # 2. Distribute Remaining Needs to Multi-Class Sources
+    multi_sources = [s for s, q in quotas.items() if not q["single"]]
+    total_multi_w = sum(weights[s] for s in multi_sources)
+
+    for src in multi_sources:
+        rel_w = weights[src] / total_multi_w if total_multi_w > 0 else 0
+        t_h, t_d = int(rem_h * rel_w), int(rem_d * rel_w)
+
+        src_df = df[df["source"] == src]
+        h_p, d_p = (
+            src_df[src_df["is_diseased"] == 0],
+            src_df[src_df["is_diseased"] == 1],
+        )
+
+        n_h = t_h if allow_oversampling else min(len(h_p), t_h)
+        n_d = t_d if allow_oversampling else min(len(d_p), t_d)
+
+        if n_h > 0:
+            sampled.append(
+                h_p.sample(
+                    n=n_h,
+                    replace=allow_oversampling and len(h_p) < n_h,
+                    random_state=seed,
+                )
+            )
+        if n_d > 0:
+            sampled.append(
+                d_p.sample(
+                    n=n_d,
+                    replace=allow_oversampling and len(d_p) < n_d,
+                    random_state=seed,
+                )
+            )
+        print(f"Sampling {src}: H={n_h}, D={n_d}")
+
+    # 3. Collect Single-Class Samples
+    for src, q in quotas.items():
+        if q["single"]:
+            s_df = df[(df["source"] == src) & (df["is_diseased"] == q["cls"])]
+            if q["n"] > 0:
+                sampled.append(s_df.sample(n=q["n"], random_state=seed))
+            print(f"Sampling {src}: {'Diseased' if q['cls'] else 'Healthy'}={q['n']}")
+
+    return sampled
+
+
+def _sample_cross_source(
+    base_df: pd.DataFrame,
+    weights: dict,
+    total_size: int,
+    test_pct: float,
+    seed: int,
+) -> list[pd.DataFrame]:
+    """Helper for cross-source sampling with potential iNaturalist leak."""
+    tr_size = int(total_size * (1 - test_pct))
+    te_size = int(total_size * test_pct)
+    
+    # Extract leak weight and field source weights
+    leak_w = weights.get("inaturalist_leak", 0.0)
+    field_weights = {k: v for k, v in weights.items() if k != "inaturalist_leak"}
+    
+    field_df = base_df[base_df["source"].isin(field_weights.keys())]
+    inat_df = base_df[base_df["source"] == "inaturalist"]
+
+    if field_df.empty or inat_df.empty:
+        return []
+
+    # 1. Isolate Test Set (Strictly iNaturalist)
+    te_sampled = inat_df.sample(n=min(len(inat_df), te_size), random_state=seed)
+    
+    # 2. Isolate Leak Pool (Remaining iNaturalist)
+    remaining_inat = inat_df.drop(te_sampled.index)
+    leak_n = int(tr_size * leak_w)
+    
+    leak_sampled = []
+    if leak_n > 0:
+        # Balance the leak pool (50/50 H/D)
+        h_pool = remaining_inat[remaining_inat["is_diseased"] == 0]
+        d_pool = remaining_inat[remaining_inat["is_diseased"] == 1]
+        
+        n_per = leak_n // 2
+        if not h_pool.empty and not d_pool.empty:
+            leak_sampled.append(h_pool.sample(n=min(len(h_pool), n_per), random_state=seed))
+            leak_sampled.append(d_pool.sample(n=min(len(d_pool), n_per), random_state=seed))
+            print(f"Leak: Sampled {len(leak_sampled[0]) + len(leak_sampled[1])} iNaturalist images into training.")
+
+    # 3. Sample Field Training Set
+    field_tr_size = tr_size - (leak_n if leak_n > 0 else 0)
+    tr_field_sampled = _sample_balanced_quota(
+        field_df, field_weights, field_tr_size, seed, allow_oversampling=True
+    )
+
+    # Return order: [Field sources..., Leak, Test]
+    return [*tr_field_sampled, *leak_sampled, te_sampled]
+
+
+def sample_by_composition(
+    base_df: pd.DataFrame, total_size: int, mode: str, cfg: dict
+) -> pd.DataFrame:
+    """Samples data dynamically based on mode configuration."""
     seed = cfg["sampling"]["random_state"]
-    for source, s_cfg in cfg["composition"].items():
-        source_n = int(total_size * s_cfg.get("dataset_weight", 0))
-        if source_n <= 0:
-            continue
-        print(f"Sampling {source}:")
-        for is_d in [True, False]:
-            pct = s_cfg.get("diseased_pct" if is_d else "healthy_pct", 0) / 100.0
-            n_target = int(source_n * pct)
-            full_sample = df[(df["source"] == source) & (df["is_diseased"] == is_d)]
-            n = min(len(full_sample), n_target)
-            if n > 0:
-                sampled.append(full_sample.sample(n=n, random_state=seed))
-                print(f"+--{'Diseased' if is_d else 'Healthy'}: {n}")
+    weights = cfg["modes"].get(mode, {})
+    test_pct = cfg["sampling"]["test_size"]
+
+    if mode == "standard":
+        sampled = _sample_standard(base_df, weights, total_size, seed)
+    elif mode == "balanced":
+        sampled = _sample_balanced_quota(base_df, weights, total_size, seed)
+    elif mode == "cross_source":
+        sampled = _sample_cross_source(base_df, weights, total_size, test_pct, seed)
+    else:
+        return pd.DataFrame()
+
+    if mode == "cross_source":
+        # Do not shuffle cross_source yet, as we need to split tr/te by index
+        return pd.concat(sampled)
+    
     return (
         pd.concat(sampled).sample(frac=1, random_state=seed)
         if sampled
-        else pd.DataFrame(columns=df.columns)
+        else pd.DataFrame(columns=base_df.columns)
     )
 
 
@@ -202,44 +374,34 @@ def get_train_test_split(
     test_pct = cfg["sampling"]["test_size"]
     val_pct = cfg["sampling"].get("val_size", 0.15)
 
-    if mode == "cross_source":
-        field_df = base_df[
-            base_df["source"].isin(["local_ccmt_ghana", "yolo_mcdd_india"])
-        ]
-        target_df = base_df[base_df["source"] == "inaturalist"]
-        if field_df.empty or target_df.empty:
-            return None
-        df_train_full = field_df.sample(n=min(len(field_df), size), random_state=seed)
-        df_test = target_df.sample(
-            n=min(len(target_df), int(size * test_pct)), random_state=seed
-        )
-
-        # Split train_full into train and val
-        val_relative_size = val_pct / (1.0 - test_pct)
-        if val_relative_size >= 1.0:
-            val_relative_size = 0.5
-        idx_tr, idx_val = train_test_split(
-            np.arange(len(df_train_full)),
-            test_size=val_relative_size,
-            random_state=seed,
-            stratify=df_train_full["is_diseased"],
-        )
-        df = cast(
-            pd.DataFrame, pd.concat([df_train_full, df_test]).reset_index(drop=True)
-        )
-        idx_te = np.arange(len(df_train_full), len(df))
-        idx_tr = np.array(idx_tr)
-        idx_val = np.array(idx_val)
-        return df, idx_tr, idx_val, idx_te
-
-    df = (
-        base_df.sample(n=min(len(base_df), size), random_state=seed)
-        if mode == "standard"
-        else sample_by_composition(base_df, size, cfg)
-    )
+    df = sample_by_composition(base_df, size, mode, cfg)
     if df.empty:
         return None
 
+    if mode == "cross_source":
+        # In cross_source, the last rows are the test set (sampled from iNaturalist)
+        # All preceding rows are training (Field + iNaturalist Leak)
+        te_size = int(size * test_pct)
+        tr_full_size = len(df) - te_size
+        
+        df_tr_full = df.iloc[:tr_full_size]
+        df_te = df.iloc[tr_full_size:]
+
+        # Split tr_full into tr and val
+        val_rel = val_pct / (1.0 - test_pct)
+        idx_tr, idx_val = train_test_split(
+            np.arange(len(df_tr_full)),
+            test_size=min(0.9, val_rel),
+            random_state=seed,
+            stratify=df_tr_full["is_diseased"],
+        )
+
+        final_df = df.reset_index(drop=True)
+        idx_te = np.arange(tr_full_size, len(final_df))
+
+        return final_df, np.array(idx_tr), np.array(idx_val), np.array(idx_te)
+
+    # Standard / Balanced path
     idx_tr, idx_temp = train_test_split(
         np.arange(len(df)),
         test_size=(test_pct + val_pct),
@@ -350,11 +512,11 @@ def train_deep_learning(df_tr, df_te, mode, size, cfg, device):
     norm = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     train_trans = transforms.Compose(
         [
-            transforms.RandomResizedCrop(224, scale=(0.65, 1.0)),
+            transforms.RandomResizedCrop(224, scale=(0.2, 1.0)),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(15),
-            transforms.ColorJitter(0.2, 0.2, 0.2, 0.1),
-            transforms.RandomGrayscale(0.2),
+            transforms.RandomRotation(20),
+            transforms.ColorJitter(0.3, 0.3, 0.3, 0.15),
+            transforms.RandomGrayscale(0.3),
             transforms.ToTensor(),
             norm,
         ]
@@ -460,7 +622,7 @@ def save_roc_curve(
 
     fpr, tpr, _ = roc_curve(y_true, y_pred_proba)
     roc_auc = auc(fpr, tpr)
-    disp = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name=model_name)
+    disp = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, name=model_name)
     _, ax = plt.subplots(figsize=(6, 6))
     disp.plot(ax=ax)
     ax.set_title(f"ROC Curve: {model_name}\n({mode}, N={size})")
@@ -481,26 +643,64 @@ def save_gradcam_visualizations(model, df, mode, size, cfg, device):
     trans = transforms.Compose(
         [transforms.Resize((224, 224)), transforms.ToTensor(), norm]
     )
-    samples = df.sample(n=min(len(df), vis_cfg["num_samples"]), random_state=42)
+    # Balanced sampling for Grad-CAM
+    num_total = min(len(df), vis_cfg["num_samples"])
+    num_per_class = num_total // 2
+
+    diseased_df = df[df["is_diseased"] == 1]
+    healthy_df = df[df["is_diseased"] == 0]
+
+    # Handle cases where one class might have fewer samples than num_per_class
+    d_samples = diseased_df.sample(
+        n=min(len(diseased_df), num_per_class),
+        random_state=cfg["sampling"]["random_state"],
+    )
+    h_samples = healthy_df.sample(
+        n=min(len(healthy_df), num_per_class),
+        random_state=cfg["sampling"]["random_state"],
+    )
+
+    samples = pd.concat([d_samples, h_samples]).sample(
+        frac=1, random_state=cfg["sampling"]["random_state"]
+    )
 
     for _, row in tqdm(samples.iterrows(), total=len(samples), desc="Grad-CAM"):
         try:
             img_pil = Image.open(row["local_path"]).convert("RGB")
-            mask = gcam.generate(trans(img_pil).unsqueeze(0).to(device))  # pyright: ignore[reportAttributeAccessIssue]
+            input_tensor = trans(img_pil).unsqueeze(0).to(device)
+
+            # Get prediction and probability
+            model.zero_grad()
+            output = model(input_tensor)
+            prob = torch.sigmoid(output).item()
+            pred = prob > 0.5
+            is_correct = pred == bool(row["is_diseased"])
+
+            # Generate Grad-CAM mask
+            mask = gcam.generate(input_tensor)
+
             img_res = img_pil.resize((224, 224))
             plt.figure(figsize=(10, 5))
             plt.subplot(1, 2, 1)
             plt.imshow(img_res)
             plt.axis("off")
-            plt.title(f"Original\nID: {row['external_id']}")
+            plt.title(f"Original\nID: {row['external_id']}\nSource: {row['source']}")
+
             plt.subplot(1, 2, 2)
             plt.imshow(img_res)
             plt.imshow(mask, cmap="jet", alpha=0.5, extent=(0, 224, 224, 0))
             plt.axis("off")
-            plt.title(f"Grad-CAM\nDiseased: {bool(row['is_diseased'])}")
+
+            status = "CORRECT" if is_correct else "WRONG"
+            gt_label = "Diseased" if row["is_diseased"] else "Healthy"
+            pred_label = "Diseased" if pred else "Healthy"
+            plt.title(
+                f"Grad-CAM [{status}]\nGT: {gt_label}, Pred: {pred_label} ({prob:.2f})"
+            )
+
             plt.savefig(
                 Path(vis_cfg["output_dir"])
-                / f"gcam_{row['external_id']}_{mode}_{size}.png",
+                / f"gcam_{mode}_{size}_{row['external_id']}.png",
                 bbox_inches="tight",
             )
             plt.close()
@@ -509,6 +709,43 @@ def save_gradcam_visualizations(model, df, mode, size, cfg, device):
 
 
 # --- Reporting & Orchestration ---
+
+
+def print_split_composition(df, idx_tr, idx_val, idx_te):
+    """Prints a detailed breakdown of the dataset splits."""
+
+    def get_counts(indices):
+        if len(indices) == 0:
+            return pd.DataFrame()
+        subset = df.iloc[indices]
+        return subset.groupby(["source", "is_diseased"]).size().unstack(fill_value=0)
+
+    print("\n--- Dataset Split Composition ---")
+    print(
+        f"{'Source':<20} | {'Train (H/D)':<15} | {'Val (H/D)':<15} | {'Test (H/D)':<15}"
+    )
+    print("-" * 75)
+
+    tr = get_counts(idx_tr)
+    val = get_counts(idx_val)
+    te = get_counts(idx_te)
+
+    all_sources = sorted(set(df["source"]))
+    for src in all_sources:
+        counts = {}
+        for lbl_key, dset in [("tr", tr), ("val", val), ("te", te)]:
+            for cls in [0, 1]:
+                val_count = 0
+                # Check both int and float column names
+                for col in [float(cls), int(cls)]:
+                    if col in dset.columns and src in dset.index:
+                        val_count = dset.loc[src, col]
+                        break
+                counts[f"{lbl_key}_{cls}"] = val_count
+
+        print(
+            f"{src:<20} | {counts['tr_0']:>3}/{counts['tr_1']:<3}         | {counts['val_0']:>3}/{counts['val_1']:<3}         | {counts['te_0']:>3}/{counts['te_1']:<3}"
+        )
 
 
 def evaluate_gate(res, dummy_f1):
@@ -524,6 +761,16 @@ def evaluate_gate(res, dummy_f1):
 
 def run_experiment_suite():
     """Main orchestrator for experiments."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run model comparison experiments.")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Display dataset compositions and exit without training models.",
+    )
+    args = parser.parse_args()
+
     with open(CONFIG_PATH, "rb") as f:
         cfg = tomllib.load(f)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -545,6 +792,11 @@ def run_experiment_suite():
         if not split:
             continue
         df, idx_tr, idx_val, idx_te = split
+        print_split_composition(df, idx_tr, idx_val, idx_te)
+
+        if args.dry_run:
+            print(f"Dry run enabled: Skipping training for {mode} (N={size}).")
+            continue
 
         X = np.array(
             [
@@ -584,10 +836,6 @@ def run_experiment_suite():
 
     report = pd.DataFrame(all_results)
     print("\n### Modular Experiment Results\n", report.to_markdown(index=False))
-    if not LOG_PATH.exists():
-        LOG_PATH.write_text("# Experimentation Progress Log\n")
-    with open(LOG_PATH, "a") as f:
-        f.write(f"\n## Run: {pd.Timestamp.now()}\n{report.to_markdown(index=False)}\n")
 
 
 if __name__ == "__main__":

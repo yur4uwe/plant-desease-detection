@@ -100,7 +100,8 @@ S3 --> Test
 @enduml
 ```
 
-(Note: actual image is in docs/images/model_evaluation_metrics_split_strategy.png)
+![Data Loading Pipeline](images/model_evaluation_metrics_split_strategy.png)
+**Figure 1:** The data loading pipeline for the model evaluation metrics.
 
 ### The Decision Rule
 When comparing multiple candidate models (e.g., ResNet vs. MobileNet, or different hyperparameters), the following strict hierarchy applies:

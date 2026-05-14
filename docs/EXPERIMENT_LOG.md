@@ -163,3 +163,143 @@
 | XGBoost      | 0.484848 | 0.96     |    0.324324 | 2.10317e-05 |   0.713418    | cross_source |          500 | FAIL (Below Baseline) |
 | RandomForest | 0.5      | 1        |    0.333333 | 9.84637e-05 |   0.157609    | cross_source |          500 | FAIL (Below Baseline) |
 | MobileNetV2  | 0.404762 | 0.68     |    0.288136 | 0.0290242   | 159.593       | cross_source |          500 | FAIL (Recall)         |
+
+## Run: 2026-05-13 16:37:49.578690
+| Model        |       F1 |   Recall |   Precision |     Latency |    TrainTime | Mode     |   SampleSize | Status                |
+|:-------------|---------:|---------:|------------:|------------:|-------------:|:---------|-------------:|:----------------------|
+| Dummy        | 0.888889 | 1        |    0.8      | 7.62939e-06 |  0.000728846 | standard |          100 | FAIL (Below Baseline) |
+| XGBoost      | 0.75     | 0.75     |    0.75     | 7.75655e-05 |  0.373187    | standard |          100 | FAIL (Recall)         |
+| RandomForest | 0.888889 | 1        |    0.8      | 0.000512918 |  0.181667    | standard |          100 | FAIL (Below Baseline) |
+| MobileNetV2  | 0.631579 | 0.5      |    0.857143 | 0.0238619   | 24.5751      | standard |          100 | FAIL (Recall)         |
+| Dummy        | 0        | 0        |    0        | 3.16302e-06 |  0.000277758 | balanced |          100 | FAIL (Recall)         |
+| XGBoost      | 0.4      | 0.428571 |    0.375    | 7.65959e-05 |  0.403038    | balanced |          100 | FAIL (Recall)         |
+| RandomForest | 0.5      | 0.428571 |    0.6      | 0.000491683 |  0.111807    | balanced |          100 | FAIL (Recall)         |
+| MobileNetV2  | 0.75     | 0.857143 |    0.666667 | 0.0229949   | 24.4288      | balanced |          100 | FAIL (Recall)         |
+
+## Run: 2026-05-13 16:40:14.390728
+| Model        |       F1 |   Recall |   Precision |     Latency |    TrainTime | Mode     |   SampleSize | Status                |
+|:-------------|---------:|---------:|------------:|------------:|-------------:|:---------|-------------:|:----------------------|
+| Dummy        | 0.888889 | 1        |    0.8      | 3.7988e-06  |  0.000288963 | standard |          100 | FAIL (Below Baseline) |
+| XGBoost      | 0.75     | 0.75     |    0.75     | 7.90278e-05 |  0.249078    | standard |          100 | FAIL (Recall)         |
+| RandomForest | 0.888889 | 1        |    0.8      | 0.000479794 |  0.10182     | standard |          100 | FAIL (Below Baseline) |
+| MobileNetV2  | 0.833333 | 0.833333 |    0.833333 | 0.0236256   | 24.4335      | standard |          100 | FAIL (Recall)         |
+| Dummy        | 0        | 0        |    0        | 3.25839e-06 |  0.000287056 | balanced |          100 | FAIL (Recall)         |
+| XGBoost      | 0.470588 | 0.571429 |    0.4      | 7.92503e-05 |  0.358049    | balanced |          100 | FAIL (Recall)         |
+| RandomForest | 0.615385 | 0.571429 |    0.666667 | 0.000483084 |  0.128164    | balanced |          100 | FAIL (Recall)         |
+| MobileNetV2  | 0.666667 | 0.571429 |    0.8      | 0.0246044   | 24.7958      | balanced |          100 | FAIL (Recall)         |
+
+## Run: 2026-05-13 16:53:52.681544
+| Model        |       F1 |   Recall |   Precision |     Latency |    TrainTime | Mode     |   SampleSize | Status                |
+|:-------------|---------:|---------:|------------:|------------:|-------------:|:---------|-------------:|:----------------------|
+| Dummy        | 0.888889 | 1        |    0.8      | 3.91006e-06 |  0.00032258  | standard |          100 | FAIL (Below Baseline) |
+| XGBoost      | 0.8      | 0.833333 |    0.769231 | 7.35124e-05 |  0.30147     | standard |          100 | FAIL (Recall)         |
+| RandomForest | 0.888889 | 1        |    0.8      | 0.000475486 |  0.13049     | standard |          100 | FAIL (Below Baseline) |
+| MobileNetV2  | 0.923077 | 1        |    0.857143 | 0.026418    | 26.9006      | standard |          100 | PASSED                |
+| Dummy        | 0        | 0        |    0        | 3.5127e-06  |  0.000301123 | balanced |          100 | FAIL (Recall)         |
+| XGBoost      | 0.4      | 0.428571 |    0.375    | 0.000156546 |  0.395676    | balanced |          100 | FAIL (Recall)         |
+| RandomForest | 0.5      | 0.428571 |    0.6      | 0.00050993  |  0.109509    | balanced |          100 | FAIL (Recall)         |
+| MobileNetV2  | 0.444444 | 0.285714 |    1        | 0.0273043   | 25.8173      | balanced |          100 | FAIL (Recall)         |
+
+## Run: 2026-05-13 16:58:42.665945
+| Model        |       F1 |   Recall |   Precision |     Latency |    TrainTime | Mode         |   SampleSize | Status                |
+|:-------------|---------:|---------:|------------:|------------:|-------------:|:-------------|-------------:|:----------------------|
+| Dummy        | 0.888889 | 1        |    0.8      | 2.74976e-06 |  0.000253201 | standard     |          100 | FAIL (Below Baseline) |
+| XGBoost      | 0.75     | 0.75     |    0.75     | 4.433e-05   |  0.159598    | standard     |          100 | FAIL (Recall)         |
+| RandomForest | 0.888889 | 1        |    0.8      | 0.000333246 |  0.0703132   | standard     |          100 | FAIL (Below Baseline) |
+| MobileNetV2  | 0.8      | 0.833333 |    0.769231 | 0.0232281   | 19.1003      | standard     |          100 | FAIL (Recall)         |
+| Dummy        | 0        | 0        |    0        | 2.44776e-06 |  0.000212193 | balanced     |          100 | FAIL (Recall)         |
+| XGBoost      | 0.615385 | 0.571429 |    0.666667 | 6.03358e-05 |  0.205899    | balanced     |          100 | FAIL (Recall)         |
+| RandomForest | 0.6      | 0.428571 |    1        | 0.000332848 |  0.0712867   | balanced     |          100 | FAIL (Recall)         |
+| MobileNetV2  | 0.769231 | 0.714286 |    0.833333 | 0.0188904   | 19.0747      | balanced     |          100 | FAIL (Recall)         |
+| Dummy        | 0.421053 | 1        |    0.266667 | 2.36829e-06 |  0.000206709 | cross_source |          100 | FAIL (Below Baseline) |
+| XGBoost      | 0.421053 | 1        |    0.266667 | 4.60307e-05 |  0.136216    | cross_source |          100 | FAIL (Below Baseline) |
+| RandomForest | 0.421053 | 1        |    0.266667 | 0.00033741  |  0.0695159   | cross_source |          100 | FAIL (Below Baseline) |
+| MobileNetV2  | 0.25     | 0.5      |    0.166667 | 0.0184557   | 22.0657      | cross_source |          100 | FAIL (Recall)         |
+
+## Run: 2026-05-13 17:30:39.006275
+| Model        |       F1 |   Recall |   Precision |     Latency |     TrainTime | Mode         |   SampleSize | Status                |
+|:-------------|---------:|---------:|------------:|------------:|--------------:|:-------------|-------------:|:----------------------|
+| Dummy        | 0.93617  | 1        |    0.88     | 1.43687e-06 |   0.000538111 | standard     |          500 | FAIL (Below Baseline) |
+| XGBoost      | 0.933333 | 0.954545 |    0.913043 | 1.42352e-05 |   0.598764    | standard     |          500 | FAIL (Below Baseline) |
+| RandomForest | 0.93617  | 1        |    0.88     | 7.35219e-05 |   0.113246    | standard     |          500 | FAIL (Below Baseline) |
+| MobileNetV2  | 0.984615 | 0.969697 |    1        | 0.0291344   | 120.085       | standard     |          500 | PASSED                |
+| Dummy        | 0.658228 | 1        |    0.490566 | 7.42247e-07 |   0.000226974 | balanced     |          500 | FAIL (Below Baseline) |
+| XGBoost      | 0.576923 | 0.576923 |    0.576923 | 2.61406e-05 |   0.938816    | balanced     |          500 | FAIL (Recall)         |
+| RandomForest | 0.701754 | 0.769231 |    0.645161 | 0.000124068 |   0.130747    | balanced     |          500 | FAIL (Recall)         |
+| MobileNetV2  | 0.8      | 0.923077 |    0.705882 | 0.0263975   |  86.8275      | balanced     |          500 | PASSED                |
+| Dummy        | 0.5      | 1        |    0.333333 | 5.75384e-07 |   0.000258446 | cross_source |          500 | FAIL (Below Baseline) |
+| XGBoost      | 0.494845 | 0.96     |    0.333333 | 1.32116e-05 |   0.501205    | cross_source |          500 | FAIL (Below Baseline) |
+| RandomForest | 0.5      | 1        |    0.333333 | 7.70982e-05 |   0.131961    | cross_source |          500 | FAIL (Below Baseline) |
+| MobileNetV2  | 0.494845 | 0.96     |    0.333333 | 0.0269214   | 142.729       | cross_source |          500 | FAIL (Below Baseline) |
+
+## Run: 2026-05-13 17:54:21.113646
+| Model        |       F1 |   Recall |   Precision |     Latency |     TrainTime | Mode         |   SampleSize | Status                |
+|:-------------|---------:|---------:|------------:|------------:|--------------:|:-------------|-------------:|:----------------------|
+| Dummy        | 0.93617  | 1        |    0.88     | 6.23067e-07 |   0.000271082 | standard     |          500 | FAIL (Below Baseline) |
+| XGBoost      | 0.948905 | 0.984848 |    0.915493 | 2.15054e-05 |   0.537711    | standard     |          500 | PASSED                |
+| RandomForest | 0.93617  | 1        |    0.88     | 8.0169e-05  |   0.128293    | standard     |          500 | FAIL (Below Baseline) |
+| MobileNetV2  | 0.96875  | 0.939394 |    1        | 0.0247358   | 113.116       | standard     |          500 | PASSED                |
+| Dummy        | 0.658228 | 1        |    0.490566 | 7.64739e-07 |   0.000236988 | balanced     |          500 | FAIL (Below Baseline) |
+| XGBoost      | 0.576923 | 0.576923 |    0.576923 | 2.01486e-05 |   0.831643    | balanced     |          500 | FAIL (Recall)         |
+| RandomForest | 0.571429 | 0.538462 |    0.608696 | 0.000106713 |   0.106695    | balanced     |          500 | FAIL (Recall)         |
+| MobileNetV2  | 0.777778 | 0.807692 |    0.75     | 0.0259375   |  80.9631      | balanced     |          500 | FAIL (Recall)         |
+| Dummy        | 0.5      | 1        |    0.333333 | 1.00454e-06 |   0.000496864 | cross_source |          500 | FAIL (Below Baseline) |
+| XGBoost      | 0.484848 | 0.96     |    0.324324 | 1.35008e-05 |   0.577667    | cross_source |          500 | FAIL (Below Baseline) |
+| RandomForest | 0.5      | 1        |    0.333333 | 9.02843e-05 |   0.127802    | cross_source |          500 | FAIL (Below Baseline) |
+| MobileNetV2  | 0.5      | 1        |    0.333333 | 0.0265405   | 141.675       | cross_source |          500 | FAIL (Below Baseline) |
+
+## Run: 2026-05-13 18:10:03.430766
+| Model        |       F1 |   Recall |   Precision |     Latency |     TrainTime | Mode         |   SampleSize | Status                |
+|:-------------|---------:|---------:|------------:|------------:|--------------:|:-------------|-------------:|:----------------------|
+| Dummy        | 0.93617  | 1        |    0.88     | 6.19888e-07 |   0.000244617 | standard     |          500 | FAIL (Below Baseline) |
+| XGBoost      | 0.941176 | 0.969697 |    0.914286 | 1.38251e-05 |   0.533881    | standard     |          500 | PASSED                |
+| RandomForest | 0.93617  | 1        |    0.88     | 8.30364e-05 |   0.121103    | standard     |          500 | FAIL (Below Baseline) |
+| MobileNetV2  | 0.96875  | 0.939394 |    1        | 0.0298057   | 118.109       | standard     |          500 | PASSED                |
+| Dummy        | 0.658228 | 1        |    0.490566 | 1.01665e-06 |   0.0003016   | balanced     |          500 | FAIL (Below Baseline) |
+| XGBoost      | 0.64     | 0.615385 |    0.666667 | 3.11024e-05 |   1.1028      | balanced     |          500 | FAIL (Recall)         |
+| RandomForest | 0.653061 | 0.615385 |    0.695652 | 0.000118269 |   0.119879    | balanced     |          500 | FAIL (Recall)         |
+| MobileNetV2  | 0.857143 | 0.807692 |    0.913043 | 0.026744    |  84.3901      | balanced     |          500 | FAIL (Recall)         |
+| Dummy        | 0.5      | 1        |    0.333333 | 5.40415e-07 |   0.000235319 | cross_source |          500 | FAIL (Below Baseline) |
+| XGBoost      | 0.5      | 1        |    0.333333 | 1.34087e-05 |   0.459528    | cross_source |          500 | FAIL (Below Baseline) |
+| RandomForest | 0.5      | 1        |    0.333333 | 8.21972e-05 |   0.125294    | cross_source |          500 | FAIL (Below Baseline) |
+| MobileNetV2  | 0.426966 | 0.76     |    0.296875 | 0.0272023   | 141.203       | cross_source |          500 | FAIL (Recall)         |
+
+
+
+| Model        |       F1 |   Recall |   Precision |     Latency |      TrainTime | Mode         |   SampleSize | Status                |
+|:-------------|---------:|---------:|------------:|------------:|---------------:|:-------------|-------------:|:----------------------|
+| Dummy        | 0.861912 | 1        |    0.757333 | 6.29425e-08 |    0.00028801  | standard     |         5000 | FAIL (Below Baseline) |
+| XGBoost      | 0.912434 | 0.917254 |    0.907666 | 2.26688e-06 |    2.28315     | standard     |         5000 | PASSED                |
+| RandomForest | 0.908939 | 0.957746 |    0.864865 | 1.37113e-05 |    0.846537    | standard     |         5000 | PASSED                |
+| MobileNetV2  | 0.955036 | 0.934859 |    0.976103 | 0.0224281   |  992.49        | standard     |         5000 | PASSED                |
+| Dummy        | 0.672481 | 1        |    0.506569 | 1.62194e-07 |    0.00154185  | balanced     |         5000 | FAIL (Below Baseline) |
+| XGBoost      | 0.797784 | 0.829971 |    0.768    | 2.39741e-06 |    3.0915      | balanced     |         5000 | FAIL (Recall)         |
+| RandomForest | 0.810229 | 0.867435 |    0.760101 | 1.59354e-05 |    0.864571    | balanced     |         5000 | FAIL (Recall)         |
+| MobileNetV2  | 0.882801 | 0.835735 |    0.935484 | 0.0233225   |  958.503       | balanced     |         5000 | FAIL (Recall)         |
+| Dummy        | 0        | 0        |    0        | 5.8492e-08  |    0.000273705 | cross_source |         5000 | FAIL (Recall)         |
+| XGBoost      | 0.526741 | 0.9631   |    0.3625   | 2.46652e-06 |    2.25241     | cross_source |         5000 | PASSED                |
+| RandomForest | 0.526527 | 0.97048  |    0.361264 | 1.38613e-05 |    0.86516     | cross_source |         5000 | PASSED                |
+| MobileNetV2  | 0.516949 | 0.900369 |    0.362556 | 0.0226513   | 1057.31        | cross_source |         5000 | PASSED                |
+
+
+| Model       |       F1 |   Recall |   Precision |     Latency |     TrainTime | Mode         |   SampleSize | Status                |
+|:------------|---------:|---------:|------------:|------------:|--------------:|:-------------|-------------:|:----------------------|
+| Dummy       | 0.867925 | 1        |    0.766667 | 2.81334e-07 |   0.000278711 | standard     |         1000 | FAIL (Below Baseline) |
+| MobileNetV2 | 0.905172 | 0.913043 |    0.897436 | 0.020923    | 198.188       | standard     |         1000 | PASSED                |
+| Dummy       | 0        | 0        |    0        | 2.55903e-07 |   0.000225782 | balanced     |         1000 | FAIL (Recall)         |
+| MobileNetV2 | 0.747967 | 0.613333 |    0.958333 | 0.0219919   | 197.418       | balanced     |         1000 | FAIL (Recall)         |
+| Dummy       | 0        | 0        |    0        | 2.55903e-07 |   0.000262499 | cross_source |         1000 | FAIL (Recall)         |
+| MobileNetV2 | 0.649573 | 0.655172 |    0.644068 | 0.0226815   | 205.233       | cross_source |         1000 | FAIL (Recall)         |
+
+
+| Model       |       F1 |   Recall |   Precision |     Latency |     TrainTime | Mode         |   SampleSize | Status                |
+|:------------|---------:|---------:|------------:|------------:|--------------:|:-------------|-------------:|:----------------------|
+| Dummy       | 0.867925 | 1        |    0.766667 | 2.97228e-07 |   0.000242472 | standard     |         1000 | FAIL (Below Baseline) |
+| XGBoost     | 0.87931  | 0.886957 |    0.871795 | 7.59125e-06 |   0.91098     | standard     |         1000 | FAIL (Recall)         |
+| MobileNetV2 | 0.925764 | 0.921739 |    0.929825 | 0.0215235   | 201.387       | standard     |         1000 | PASSED                |
+| Dummy       | 0        | 0        |    0        | 2.54313e-07 |   0.000221491 | balanced     |         1000 | FAIL (Recall)         |
+| XGBoost     | 0.728477 | 0.733333 |    0.723684 | 9.55264e-06 |   1.76761     | balanced     |         1000 | FAIL (Recall)         |
+| MobileNetV2 | 0.837838 | 0.826667 |    0.849315 | 0.0223104   | 207.253       | balanced     |         1000 | FAIL (Recall)         |
+| Dummy       | 0        | 0        |    0        | 2.54313e-07 |   0.000220776 | cross_source |         1000 | FAIL (Recall)         |
+| XGBoost     | 0.578035 | 0.862069 |    0.434783 | 8.07126e-06 |   0.988716    | cross_source |         1000 | FAIL (Recall)         |
+| MobileNetV2 | 0.654206 | 0.603448 |    0.714286 | 0.0230999   | 210.452       | cross_source |         1000 | FAIL (Recall)         |
