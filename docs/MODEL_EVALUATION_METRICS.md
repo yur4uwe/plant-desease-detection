@@ -69,6 +69,7 @@ Beyond statistical classification metrics, the model must be evaluated against o
 ### The Split Strategy
 To ensure reliable evaluation, the data will be split using a Stratified strategy based on both the target label and the derived environmental metadata.
 
+<!--
 ```plantuml
 @startuml
 skinparam packageStyle rectangle
@@ -93,12 +94,13 @@ package "Dataset Splits" {
   note bottom: Preserves the real-world\n18/82 imbalance.
 }
 
-DB --> S1
-S3 --> Train
-S3 --> Val
-S3 --> Test
+DB -> S1
+S3 -> Train
+S3 -> Val
+S3 -> Test
 @enduml
 ```
+-->
 
 ![Data Loading Pipeline](images/model_evaluation_metrics_split_strategy.png)
 **Figure 1:** The data loading pipeline for the model evaluation metrics.
