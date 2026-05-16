@@ -68,6 +68,7 @@ proj-data-processing/
 │   └── BUSINESS_EVALUATION.md     # Stage 4: Business KPIs & Integral evaluation
 ├── data/
 │   ├── checkpoints/
+│   │   └── model.pt
 │   ├── raw/
 │   │   ├── inaturalist/
 │   │   ├── ccmt/
@@ -90,7 +91,7 @@ proj-data-processing/
 │   ├── load.py
 │   └── pipeline.py
 ├── steps/                         # Project execution steps
-│   ├── mds/                       # Markdown versions of project steps
+│   ├── mds/                       # Markdown versions of project instruction steps
 │   │   ├── proj-step-01.md
 │   │   ├── ...
 │   │   └── proj-step-16.md
@@ -112,6 +113,8 @@ proj-data-processing/
 
 ## Documentation & Step Mapping
 
+Instructions for each step are located in `steps/mds/proj-step-XX.md`, where `XX` is the step number.
+
 Each documentation file in `docs/` corresponds to a specific project step defined in `steps/mds/`. You can identify the correspondence by checking the `Step: XX` comment at the top of each markdown file.
 
 To quickly find which document corresponds to a specific step, use `grep`:
@@ -125,6 +128,8 @@ grep -l "Step: 03" docs/*
 ```
 
 The documentation files are preferred when you want to familiarize yourself with the project's design and implementation. Each time documentation isn't enough you MUST state what information it was lacking and where to find answer to the question.  When starting a step, use documentation in docs/ to understand relevant information, only if documentation wasn't enough you should analyze the code.
+
+To quickly understand whether previous steps are relevant to the current one, use `head -3` on step instruction markdown file which will reveal its topic. From there you can access whether the step is relevant and only then fetch full instructions or documentation.
 
 ### Visualization
 

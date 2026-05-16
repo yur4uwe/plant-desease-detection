@@ -1,7 +1,7 @@
 # Experiment Configuration for Step 12: Model Refinement
 [sampling]
 # Total images to use in the experiment
-sample_sizes = [1000]
+sample_sizes = [2500]
 random_state = 230420
 test_size = 0.15
 val_size = 0.15
@@ -33,11 +33,11 @@ val_size = 0.15
 
 [models]
 # Including Dummy for baseline comparison
-list = ["Dummy", "MobileNetV2", "XGBoost"]
+list = ["Dummy", "RandomForest", "XGBoost", "MobileNetV2"]
 # Deep Learning specific
 epochs = 7
 batch_size = 32
-fine_tune_last_blocks = 8
+fine_tune_last_blocks = 12
 
 [visualization]
 save_grad_cam = true
