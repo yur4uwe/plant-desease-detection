@@ -30,7 +30,17 @@ CREATE TABLE IF NOT EXISTS observations (
     precipitation     REAL,
     provenance        TEXT,
     UNIQUE (source, external_id)
-)
+);
+
+CREATE TABLE IF NOT EXISTS predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    observation_id INTEGER UNIQUE,
+    predicted_is_diseased INTEGER,
+    confidence REAL,
+    model_version TEXT,
+    predicted_at TEXT,
+    FOREIGN KEY(observation_id) REFERENCES observations(id)
+);
 """
 
 
@@ -44,7 +54,7 @@ def get_connection(db_path: str) -> sqlite3.Connection:
 
 
 def init_db(conn: sqlite3.Connection) -> None:
-    _ = conn.execute(CREATE_TABLE_SQL)
+    _ = conn.executescript(CREATE_TABLE_SQL)
     conn.commit()
     logger.info("Database schema initialized")
 

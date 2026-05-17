@@ -16,7 +16,7 @@ base_url = "https://api.inaturalist.org/v1"
 taxon_id = 47126        # Plantae
 project_ids = [49595, 124267, 227684, 47428, 255039, 27611]
 per_page = 200          # максимум дозволений API
-target_count = 5000
+target_count = 200
 rate_limit_seconds = 5.0
 
 [[sources.local_sources]]

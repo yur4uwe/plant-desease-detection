@@ -11,6 +11,7 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from etl.quality import calculate_quality_score
+from ml_pipeline.utils import resolve_image_path
 
 # --- Constants ---
 PROJECT_ROOT = Path(".").resolve()
@@ -70,47 +71,7 @@ def load_data_from_db(db_path: Path = DB_PATH) -> pd.DataFrame:
             "SELECT external_id, image_url, is_diseased, source FROM observations", conn
         )
 
-    def _resolve(row):
-        p = PROJECT_ROOT / row["image_url"]
-        if p.exists():
-            return p
-
-        # Generic fallback for local datasets with train/val/test/valid splits
-        fname = Path(row["image_url"]).name
-        source_dirs = {
-            "meta_plantseg": "data/raw/plantseg/plantseg/images",
-            "yolo_mcdd_india": "data/raw/mcdd/Multi-Crop Disease Dataset/Multicrop Disease Dataset/Multicrop Disease Dataset",
-            "local_ccmt_ghana": "data/raw/ccmt",
-        }
-
-        if row["source"] in source_dirs:
-            base_search = PROJECT_ROOT / source_dirs[row["source"]]
-            for sub in [
-                "",
-                "train",
-                "val",
-                "valid",
-                "test",
-                "train/images",
-                "valid/images",
-                "test/images",
-            ]:
-                p_alt = base_search / sub / fname
-                if p_alt.exists():
-                    return p_alt
-
-        # Fallback for inaturalist
-        p_inat = (
-            PROJECT_ROOT
-            / "data"
-            / "raw"
-            / "inaturalist"
-            / "images"
-            / f"{row['external_id']}.jpg"
-        )
-        return p_inat if p_inat.exists() else None
-
-    df["local_path"] = df.apply(_resolve, axis=1)
+    df["local_path"] = df.apply(resolve_image_path, axis=1)
     return cast(pd.DataFrame, df[df["local_path"].notnull()].copy())
 
 def _sample_standard(

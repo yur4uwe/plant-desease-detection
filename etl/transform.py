@@ -287,8 +287,16 @@ def run_transform(observations: list[RawObservation]) -> pd.DataFrame:
 
     df = drop_duplicates(df)
     df = parse_dates(df)
-    # Turns out I actually don't need this
-    # df = enrich_environmental_metadata(df)
+    
+    # Placeholder for environmental metadata - currently disabled
+    for col in ["season", "solar_status", "temperature", "precipitation"]:
+        if col not in df.columns:
+            df[col] = None
+    
+    # Cast to ensure schema compliance
+    df["temperature"] = pd.to_numeric(df["temperature"], errors="coerce")
+    df["precipitation"] = pd.to_numeric(df["precipitation"], errors="coerce")
+            
     df = cast_types(df)
     df = drop_invalid_coordinates(df)
 

@@ -7,6 +7,7 @@ from etl.config.types import AppConfig
 from etl.extract import load_config, run_extract
 from etl.transform import run_transform
 from etl.load import run_load
+from etl.inference import run_inference_stage
 from etl.quality import calculate_quality_score
 from etl.utils.checkpoints import CheckpointManager
 from etl.utils.telemetry import TelemetryManager
@@ -128,6 +129,15 @@ def run_pipeline(config_path: str = "etl/config.toml", resume: bool = False) -> 
                 )
             else:
                 logger.warning("[ LOAD ] No data to load. Skipping.")
+
+        # 5. Inference
+        with telemetry.stage("inference") as s:
+            if s.is_resume:
+                logger.info("[ INFERENCE ] Checking for unpredicted records.")
+            
+            logger.info("[ INFERENCE ] Starting edge model simulation")
+            stats = run_inference_stage(config)
+            s.set_metrics(count=stats.get("predicted", 0))
 
         telemetry.finish_pipeline(status="success")
         checkpoints.clear()
