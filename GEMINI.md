@@ -99,8 +99,10 @@ proj-data-processing/
 │   └── pdftomd.sh                 # PDF to Markdown conversion script
 ├── research/                      # Project execution steps
 │   ├── eda_observations.py        # Initial EDA with real data
-│   └── eda_v2.py                  # Second iteration of EDA with synthetic data
-├── scripts/                       # Project scripts, used to start integrated tasks and evaluate their output in isolated environments
+│   ├── eda_v2.py                  # Second iteration of EDA with synthetic data
+│   └── model_comparison.py        # Script that evaluates performance of different models
+├── cmd/                           # command line interfaces for starting scripts, pipelines and analysis
+├── scripts/                       # Project scripts, used to start isolated tasks and evaluate their output
 ├── tests/                         # Unit tests
 ├── utils/                         # Utility functions
 ├── logs/

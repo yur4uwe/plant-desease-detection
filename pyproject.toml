@@ -15,6 +15,7 @@ dependencies = [
     "retry-requests",
     "pytest",
     "pytest-mock",
+    "pytest-html",
 ]
 
 [tool.setuptools.packages.find]
